@@ -90,4 +90,6 @@ Asphalt `#16140f`, cream `#e6dcc8`, sodium amber `#d4a017`. Logo files are under
 
 Map data © OpenStreetMap contributors. Routes: OSRM. Weather: Open-Meteo.
 
-Started as a DSA project at Bahria University, Karachi (BSE-3B). This tree is the live desk + the deploy bits I actually use.
+## Author
+
+**Arnold Rurangwa** · ARNOVA Group

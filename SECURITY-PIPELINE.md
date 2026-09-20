@@ -1,8 +1,7 @@
 # DevSecOps Pipeline — Security Documentation
 
-> This document describes the security controls implemented on top of the
-> original STANS project (Bahria University — Data Structures course fork).
-> All controls were designed and implemented by [@Ronel16](https://github.com/Ronel16).
+> This document describes the security controls on the STANS traffic desk.
+> Designed and implemented by Arnold Rurangwa, ARNOVA Group.
 
 ---
 

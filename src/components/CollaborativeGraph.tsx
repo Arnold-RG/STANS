@@ -36,8 +36,8 @@ const CollaborativeGraph = () => {
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [localCursor, setLocalCursor] = useState({ x: 0, y: 0 });
 
-  // Simulated collaborative functionality
-  // In a real implementation, this would connect to Lovable Cloud with Supabase Realtime
+  // Simulated collaborative functionality.
+  // A production build would sync rooms over a realtime backend.
   
   const generateUserId = () => `user-${Math.random().toString(36).substr(2, 9)}`;
   const generateUserColor = () => {
@@ -139,8 +139,8 @@ const CollaborativeGraph = () => {
               </div>
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  <strong>Note:</strong> Real-time collaboration requires Lovable Cloud to be enabled. 
-                  This demo shows the interface with simulated users.
+                  <strong>Note:</strong> This desk shows the collaboration interface with simulated users.
+                  A live room would sync over a realtime backend.
                 </p>
               </div>
             </div>
@@ -311,11 +311,11 @@ const CollaborativeGraph = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              To use real-time collaborative editing with live cursor positions and synchronization, 
-              enable Lovable Cloud which provides Supabase Realtime functionality.
+              Real-time collaborative editing with live pointer positions would connect
+              to a realtime backend. This view is a local demonstration.
             </p>
             <div className="text-xs text-muted-foreground space-y-1">
-              <p><strong>Features with Lovable Cloud:</strong></p>
+              <p><strong>Planned room features:</strong></p>
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li>Real-time cursor tracking for all users</li>
                 <li>Synchronized graph modifications</li>

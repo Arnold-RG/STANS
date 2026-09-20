@@ -230,7 +230,7 @@ const Index = () => {
         <footer className="border-t border-border/50 mt-20 py-8">
           <div className="container mx-auto px-4 text-center text-muted-foreground">
             <p className="text-sm">
-              STANS © 2025 | Bahria University Karachi | Data Structures & Algorithms Project
+              STANS © 2026 · Arnold Rurangwa · ARNOVA Group
             </p>
           </div>
         </footer>

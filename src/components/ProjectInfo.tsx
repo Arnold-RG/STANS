@@ -3,10 +3,7 @@ import { Users, GraduationCap, Target, Code } from "lucide-react";
 
 const ProjectInfo = () => {
   const teamMembers = [
-    { name: "Muhammad Waleed Ahmed", role: "Team Leader", id: "02-131242-119" },
-    { name: "Muhammad Sameer", role: "Member", id: "02-131242-043" },
-    { name: "Muhammad Umer", role: "Member", id: "02-131242-109" },
-    { name: "Dahir Abdinasir", role: "Member", id: "02-131242-111" },
+    { name: "Arnold Rurangwa", role: "Computer Engineer", id: "ARNOVA Group" },
   ];
 
   return (
@@ -57,9 +54,9 @@ const ProjectInfo = () => {
             <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
               <Users className="w-5 h-5 text-accent" />
             </div>
-            <CardTitle className="font-display">Team Members</CardTitle>
+            <CardTitle className="font-display">Author</CardTitle>
           </div>
-          <CardDescription>BSE-3(B) | Data Structures and Algorithms</CardDescription>
+          <CardDescription>ARNOVA Group · live traffic desk</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -73,12 +70,10 @@ const ProjectInfo = () => {
                 </div>
                 <div className="flex-1">
                   <h4 className="font-semibold text-foreground">{member.name}</h4>
-                  <p className="text-sm text-muted-foreground">{member.id}</p>
-                  {member.role === "Team Leader" && (
-                    <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                      Team Leader
-                    </span>
-                  )}
+                  <p className="text-sm text-muted-foreground">{member.role}</p>
+                  <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                    {member.id}
+                  </span>
                 </div>
               </div>
             ))}
@@ -92,23 +87,23 @@ const ProjectInfo = () => {
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-primary" />
             </div>
-            <CardTitle className="font-display">Course Information</CardTitle>
+            <CardTitle className="font-display">Product</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="grid sm:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-semibold text-sm text-muted-foreground mb-2">Course Details</h4>
+            <h4 className="font-semibold text-sm text-muted-foreground mb-2">System</h4>
             <ul className="space-y-2 text-foreground">
-              <li><strong>Course:</strong> Data Structures and Algorithms</li>
-              <li><strong>Class:</strong> BSE-3(B)</li>
-              <li><strong>University:</strong> Bahria University, Karachi Campus</li>
+              <li><strong>Product:</strong> STANS live traffic desk</li>
+              <li><strong>Focus:</strong> Routing, maps, and operations</li>
+              <li><strong>Organization:</strong> ARNOVA Group</li>
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold text-sm text-muted-foreground mb-2">Instructors</h4>
+            <h4 className="font-semibold text-sm text-muted-foreground mb-2">Author</h4>
             <ul className="space-y-2 text-foreground">
-              <li><strong>Course Instructor:</strong> Engr. Majid Kalim</li>
-              <li><strong>Lab Instructor:</strong> Engr. Saniya Sarim</li>
+              <li><strong>Engineer:</strong> Arnold Rurangwa</li>
+              <li><strong>Title:</strong> Computer Engineer</li>
             </ul>
           </div>
         </CardContent>

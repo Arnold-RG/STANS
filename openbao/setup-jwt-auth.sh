@@ -6,8 +6,8 @@
 set -euo pipefail
 
 OPENBAO_ADDR="${OPENBAO_ADDR:-http://localhost:8200}"
-GITHUB_REPO="Ronel16/STANS"
-BOUND_AUDIENCE="https://github.com/Ronel16"
+GITHUB_REPO="Arnold-RG/STANS"
+BOUND_AUDIENCE="https://github.com/Arnold-RG"
 
 echo "Configuring OpenBao JWT auth for GitHub Actions..."
 
