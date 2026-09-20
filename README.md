@@ -1,53 +1,173 @@
-# STANS
+<p align="center">
+  <img src="docs/branding/logo.png" width="180" alt="STANS logo">
+</p>
 
-Karachi does not have a spare network. When a link clogs or a road closes, a dispatcher still has to get a vehicle from Saddar to Korangi. STANS is a traffic-operations desk that treats the city as a weighted graph: junctions are nodes, roads are edges, and the cost of a hop is minutes under live delay, not just distance.
+<h1 align="center">STANS</h1>
 
-On first paint the Karachi board is already up — Clifton, DHA, Saddar, Gulshan, Korangi — and the night simulation is running.
+<p align="center">
+  <strong>Smart Traffic-Aware Navigation System</strong><br>
+  A municipal traffic desk that treats a city as a living weighted graph.
+</p>
 
-## What you see
+<p align="center">
+  <a href="https://github.com/Arnold-RG/STANS/actions/workflows/deploy.yml"><img src="https://github.com/Arnold-RG/STANS/actions/workflows/deploy.yml/badge.svg" alt="Deploy STANS"></a>
+  <img src="https://img.shields.io/badge/license-GPL--3.0-yellow" alt="GPL-3.0">
+  <img src="https://img.shields.io/badge/stack-React%20%2B%20TypeScript-111" alt="React TypeScript">
+  <img src="https://img.shields.io/badge/container-Nginx%20Alpine-d4a017" alt="Docker">
+  <img src="https://img.shields.io/badge/registry-GHCR-16140f" alt="GHCR">
+</p>
 
-The desk opens on the Karachi board. Phones get the map first and a bottom bar (Map, Route, Desk, Cities). Wider screens add the route rail and the incident feed. Vite listens on every interface at port 8080, so other devices on the same network can open it.
+<p align="center">
+  <a href="#what-this-is">About</a> ·
+  <a href="#the-desk">The desk</a> ·
+  <a href="#how-routing-works">Routing</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#run-it">Run</a> ·
+  <a href="#docker-and-cicd">Docker</a> ·
+  <a href="#repository-layout">Layout</a>
+</p>
 
-## How it is built
+---
+
+## What this is
+
+STANS is a browser application for finding a way through a road network when traffic is not static. Junctions are **nodes**. Roads are **edges**. The cost of a hop is **minutes under live delay**, not raw distance.
+
+It opens on **Karachi Sector 04** — Clifton, DHA, Saddar, Gulshan, Jauhar, Korangi, and the rest — with the night simulation already running. You pick a live junction and a destination. Dijkstra walks the current weights and paints the path on the board.
+
+This repository is also a full DevOps package: multi-stage Docker image, Nginx SPA routing, GitHub Actions to GHCR, and optional SSH / Terraform / Kubernetes deploy.
+
+| | |
+| --- | --- |
+| Product | Traffic-operations desk (React + TypeScript + Vite) |
+| Graph work | Dijkstra, Kruskal, Prim, Union-Find |
+| Cities | Karachi (default), Lahore, Islamabad, Peshawar, Quetta, Faisalabad, Multan, Rawalpindi, Pakistan trunk |
+| Ship | `node:22-alpine` build → `nginx:1.27-alpine` image on port 80 |
+| CI | `.github/workflows/deploy.yml` → `ghcr.io/arnold-rg/stans` |
+
+## The desk
+
+The map is the product. Side rails hold the route form and the incident feed. Phones get the map first and a bottom bar.
+
+<p align="center">
+  <img src="docs/images/desk.png" width="920" alt="STANS Karachi traffic desk">
+</p>
+
+<p align="center"><em>Karachi on the board. Live / Dest on the left. Sector load on the right.</em></p>
+
+<p align="center">
+  <img src="docs/images/cities.png" width="920" alt="STANS city templates">
+</p>
+
+<p align="center"><em>Cities tab — load Pakistan, Karachi, Lahore, Islamabad, and the other sectors.</em></p>
+
+On a phone the same app is usable: Map, Route, Desk, Cities. Vite binds `::` on port **8080**, so other devices on the LAN can open it.
+
+## How routing works
 
 ```
-City graph (nodes, edges, traffic, closures)
+City graph
+  nodes  = junctions (Clifton, Saddar, …)
+  edges  = roads (minutes, traffic band, blocked flag)
         │
         ▼
-Effective weights  =  minutes × traffic × live multiplier
+Effective weight  =  minutes  ×  traffic band  ×  live multiplier
         │
-        ├─ Dijkstra / A*   →  one path through current closures
-        ├─ Kruskal / Prim  →  minimum spanning tree of the sector
-        └─ Vite build
-                │
-                ▼
-        Nginx static image  (node:22-alpine → nginx:1.27-alpine)
+        ├─ Dijkstra   →  one path under current closures
+        ├─ Kruskal    →  cheapest tree that still connects the sector
+        └─ Prim       →  same MST, grown from a seed junction
 ```
 
-The dashboard is the product. Dijkstra, Kruskal, Prim, the graph builder, and JSON/CSV import stay on the same board.
+**Traffic bands** (`low` / `medium` / `high`) sit on each edge. The night board multiplies those weights over time so a “clear” road can become delayed. Blocked edges drop out of the search. Dijkstra therefore answers a different question every few seconds: *what is the cheapest open path right now?*
+
+Kruskal and Prim do not pick a single trip. They answer: *if I had to keep the whole sector connected with the cheapest set of roads, which ones stay?* That is the MST view.
+
+You can also draw your own graph, import JSON/CSV, or switch city.
+
+## Features
+
+- Live Karachi board on first paint
+- Route finder (Dijkstra) with named streets and minutes
+- Traffic simulation, hold, speed, and incident clear
+- MST compare: Kruskal vs Prim
+- Graph builder and file import/export
+- City templates for eight Pakistan networks plus abstract topologies
+- Notes / documentation inside the app (`/docs`)
+- Dark desk by default, newsprint light theme
+- Installable web app (`manifest.webmanifest`)
+- Production image: Alpine, port 80, client-side routing, `/health`
+
+## Stack
+
+| Layer | Choice |
+| --- | --- |
+| UI | React 18, TypeScript, Vite, Tailwind |
+| Algorithms | `src/utils/dijkstra.ts`, `kruskal.ts`, `prim.ts`, `unionFind.ts` |
+| City data | `src/data/karachiNetwork.ts` |
+| Container | Multi-stage Dockerfile, Nginx `try_files` |
+| CI/CD | GitHub Actions → GHCR, optional SSH |
+| IaC (optional) | Terraform (AWS), Ansible, Kubernetes manifests |
 
 ## Run it
 
 ```bash
+git clone https://github.com/Arnold-RG/STANS.git
+cd STANS
 npm install
 npm run dev
 ```
 
-Vite binds `host: "::"` on **8080**, so the desk is on the LAN as well as `http://localhost:8080`.
+Open [http://localhost:8080](http://localhost:8080). On the same Wi-Fi, use the Network URL Vite prints (this machine has used `http://192.168.0.107:8080`).
 
 ```bash
 npm run build
 npm run preview
 ```
 
-## Docker and CI
+## Docker and CI/CD
 
 ```bash
 docker build -t stans-app .
 docker run --restart=always -p 8080:80 stans-app
 ```
 
-Image: multi-stage `node:22-alpine` build, `nginx:1.27-alpine` runtime, `try_files` for client routes. Registry and workflow notes are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Workflow: `.github/workflows/deploy.yml`.
+Push to `main` runs [deploy.yml](.github/workflows/deploy.yml): validate the production build, push `ghcr.io/arnold-rg/stans`, and deploy over SSH if those secrets exist.
+
+Server bootstrap, Certbot, firewall (22/80/443), Terraform, Ansible, Prometheus/Grafana, and Kubernetes are documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Repository layout
+
+```
+src/pages/Dashboard.tsx          # the desk
+src/data/karachiNetwork.ts       # default city graph
+src/utils/                       # Dijkstra, Kruskal, Prim, Union-Find
+src/components/dashboard/        # map, route, incidents, header
+Dockerfile                       # node:22-alpine → nginx:1.27-alpine
+.github/workflows/deploy.yml     # CI/CD
+docs/DEPLOYMENT.md               # production notes
+docs/branding/                   # logo files
+docs/images/                     # desk screenshots
+```
+
+## Brand
+
+**Use this logo.** It is the official mark: a junction (node) with one amber route through the night board.
+
+<p align="center">
+  <img src="docs/branding/logo.png" width="220" alt="Official STANS logo">
+</p>
+
+| File | Use |
+| --- | --- |
+| [docs/branding/logo.png](docs/branding/logo.png) | README, GitHub social preview, slides |
+| [public/logo.svg](public/logo.svg) | App header and high-DPI |
+| [public/favicon.svg](public/favicon.svg) | Browser tab |
+| [docs/branding/icon.png](docs/branding/icon.png) | Alternate node-only icon |
+| [docs/branding/wordmark.svg](docs/branding/wordmark.svg) | Horizontal lockup |
+
+GitHub: **Settings → General → Social preview** → upload `docs/branding/logo.png`.
+
+Colours: asphalt `#16140f`, cream `#e6dcc8`, sodium amber `#d4a017`.
 
 ## License
 
@@ -55,4 +175,4 @@ Image: multi-stage `node:22-alpine` build, `nginx:1.27-alpine` runtime, `try_fil
 
 ---
 
-Originally written for Data Structures and Algorithms, BSE-3(B), Bahria University Karachi Campus (Engr. Majid Kalim; lab: Engr. Saniya Sarim).
+Started as a Data Structures and Algorithms project at Bahria University, Karachi (BSE-3B; Engr. Majid Kalim, Engr. Saniya Sarim). This fork packages the desk for production.

@@ -36,11 +36,14 @@ const DashboardHeader = ({
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
       <div className="flex h-12 items-center justify-between gap-3 px-3 md:px-4">
-        <div className="flex min-w-0 items-baseline gap-3">
-          <h1 className="font-mono text-sm font-semibold tracking-widest text-foreground">
-            STANS
-          </h1>
-          <p className="stamp hidden truncate sm:block">{sectorName}</p>
+        <div className="flex min-w-0 items-center gap-3">
+          <img src="/logo.svg" alt="STANS" className="h-8 w-8 shrink-0 rounded-sm" />
+          <div className="min-w-0">
+            <h1 className="font-mono text-sm font-semibold tracking-widest text-foreground">
+              STANS
+            </h1>
+            <p className="stamp hidden truncate sm:block">{sectorName}</p>
+          </div>
         </div>
 
         <div className="hidden items-center gap-4 md:flex">
