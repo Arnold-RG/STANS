@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -7,118 +7,134 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { dijkstraAlgorithm } from "@/utils/dijkstra";
 import type { Edge } from "@/utils/kruskal";
+import { findAlternatePath, findPath, type PathResult, type Solver } from "@/utils/pathfinding";
 import { nodeLabel, type GraphNode } from "@/data/karachiNetwork";
 
 interface RouteFinderProps {
   nodes: GraphNode[];
   edges: Edge[];
-  onRouteCalculated: (path: string[]) => void;
+  liveId: string;
+  destId: string;
+  onLiveChange: (id: string) => void;
+  onDestChange: (id: string) => void;
+  onRouteCalculated: (path: string[], alternate: string[]) => void;
   trafficMultipliers: { [key: string]: number };
-}
-
-interface RouteStep {
-  from: string;
-  to: string;
-  minutes: number;
-  traffic: string;
 }
 
 const RouteFinder = ({
   nodes,
   edges,
+  liveId,
+  destId,
+  onLiveChange,
+  onDestChange,
   onRouteCalculated,
   trafficMultipliers,
 }: RouteFinderProps) => {
-  const [startLocation, setStartLocation] = useState<string>("");
-  const [endLocation, setEndLocation] = useState<string>("");
-  const [route, setRoute] = useState<{
-    path: string[];
-    totalTime: number;
-    steps: RouteStep[];
-    closuresAvoided: number;
-  } | null>(null);
-  const [isCalculating, setIsCalculating] = useState(false);
+  const [solver, setSolver] = useState<Solver>("dijkstra");
+  const [primary, setPrimary] = useState<PathResult | null>(null);
+  const [compare, setCompare] = useState<PathResult | null>(null);
+  const [alternate, setAlternate] = useState<PathResult | null>(null);
+  const [watching, setWatching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [query, setQuery] = useState("");
 
-  const calculateRoute = () => {
-    if (!startLocation || !endLocation) {
-      setError("Pick a live point and a destination");
+  const filteredNodes = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return nodes;
+    return nodes.filter((node) => node.label.toLowerCase().includes(q) || node.id.toLowerCase().includes(q));
+  }, [nodes, query]);
+
+  const runSearch = (silent = false) => {
+    if (!liveId || !destId) {
+      if (!silent) setError("Pick a live point and a destination, or click two junctions on the map");
+      return;
+    }
+    if (liveId === destId) {
+      if (!silent) setError("Live and dest cannot be the same junction");
       return;
     }
 
-    if (startLocation === endLocation) {
-      setError("Live and dest cannot be the same junction");
+    const next = findPath(nodes, edges, trafficMultipliers, liveId, destId, solver);
+    if (!next) {
+      setPrimary(null);
+      setCompare(null);
+      setAlternate(null);
+      onRouteCalculated([], []);
+      if (!silent) setError("No path with the current closures");
       return;
     }
 
-    setIsCalculating(true);
+    const otherSolver: Solver = solver === "dijkstra" ? "astar" : "dijkstra";
+    const other = findPath(nodes, edges, trafficMultipliers, liveId, destId, otherSolver);
+    const alt = findAlternatePath(nodes, edges, trafficMultipliers, next);
+
     setError(null);
-
-    window.setTimeout(() => {
-      const nodeIds = nodes.map((n) => n.id);
-      const steps = dijkstraAlgorithm(edges, nodeIds, startLocation, endLocation);
-      const lastStep = steps[steps.length - 1];
-
-      if (!lastStep || !lastStep.shortestPath || lastStep.shortestPath.length === 0) {
-        setError("No path with the current closures");
-        setRoute(null);
-        setIsCalculating(false);
-        return;
-      }
-
-      const path = lastStep.shortestPath;
-      const totalTime = lastStep.distances.get(endLocation) || 0;
-      const routeSteps: RouteStep[] = [];
-
-      for (let i = 0; i < path.length - 1; i++) {
-        const from = path[i];
-        const to = path[i + 1];
-        const edge = edges.find(
-          (e) => (e.from === from && e.to === to) || (e.from === to && e.to === from),
-        );
-        if (edge) {
-          const key = `${edge.from}-${edge.to}`;
-          const multiplier = trafficMultipliers[key] || 1;
-          routeSteps.push({
-            from,
-            to,
-            minutes: Math.round(edge.weight * multiplier),
-            traffic: edge.traffic,
-          });
-        }
-      }
-
-      const closuresAvoided = edges.filter((edge) => edge.isBlocked).length;
-
-      setRoute({ path, totalTime, steps: routeSteps, closuresAvoided });
-      onRouteCalculated(path);
-      setIsCalculating(false);
-    }, 280);
+    setPrimary(next);
+    setCompare(other && other.path.join(">") !== next.path.join(">") ? other : other);
+    setAlternate(alt);
+    onRouteCalculated(next.path, alt?.path ?? []);
   };
 
-  const trafficWord = (traffic: string) => {
-    if (traffic === "low") return "clear";
-    if (traffic === "medium") return "slow";
-    if (traffic === "high") return "heavy";
-    return traffic;
+  useEffect(() => {
+    if (!watching || !liveId || !destId) return;
+    runSearch(true);
+    // Recut when the board moves. live/dest/solver are intentional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watching, trafficMultipliers, edges, liveId, destId, solver]);
+
+  const copyTrip = async () => {
+    if (!primary) return;
+    const lines = [
+      `STANS trip · ${solver === "astar" ? "A*" : "Dijkstra"}`,
+      `${nodeLabel(nodes, liveId)} → ${nodeLabel(nodes, destId)}`,
+      `${primary.minutes} min · ${primary.hops} hops · ${primary.visited} nodes visited`,
+      primary.path.map((id) => nodeLabel(nodes, id)).join(" → "),
+    ];
+    if (alternate) {
+      lines.push(`Alternate ${alternate.minutes} min: ${alternate.path.map((id) => nodeLabel(nodes, id)).join(" → ")}`);
+    }
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setError("Clipboard blocked");
+    }
+  };
+
+  const swapEnds = () => {
+    if (!liveId && !destId) return;
+    onLiveChange(destId);
+    onDestChange(liveId);
   };
 
   return (
     <section className="dashboard-card p-3">
       <h2 className="stamp mb-3">Find a way through</h2>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Click two junctions on the map: first is live, second is dest.
+      </p>
       <div className="space-y-3">
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search a junction"
+          className="h-11 w-full rounded-sm border border-input bg-background px-3 text-sm"
+        />
+
         <div className="space-y-1.5">
           <label className="stamp" htmlFor="live-point">
             Live
           </label>
-          <Select value={startLocation} onValueChange={setStartLocation}>
+          <Select value={liveId || undefined} onValueChange={onLiveChange}>
             <SelectTrigger id="live-point" className="h-11 w-full rounded-sm">
               <SelectValue placeholder="Current junction" />
             </SelectTrigger>
             <SelectContent>
-              {nodes.map((node) => (
+              {filteredNodes.map((node) => (
                 <SelectItem key={node.id} value={node.id}>
                   {node.label}
                 </SelectItem>
@@ -131,12 +147,12 @@ const RouteFinder = ({
           <label className="stamp" htmlFor="dest-point">
             Dest
           </label>
-          <Select value={endLocation} onValueChange={setEndLocation}>
+          <Select value={destId || undefined} onValueChange={onDestChange}>
             <SelectTrigger id="dest-point" className="h-11 w-full rounded-sm">
               <SelectValue placeholder="Where they need to be" />
             </SelectTrigger>
             <SelectContent>
-              {nodes.map((node) => (
+              {filteredNodes.map((node) => (
                 <SelectItem key={node.id} value={node.id}>
                   {node.label}
                 </SelectItem>
@@ -145,12 +161,45 @@ const RouteFinder = ({
           </Select>
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant={solver === "dijkstra" ? "default" : "outline"}
+            className="h-11 rounded-sm"
+            onClick={() => setSolver("dijkstra")}
+          >
+            Dijkstra
+          </Button>
+          <Button
+            type="button"
+            variant={solver === "astar" ? "default" : "outline"}
+            className="h-11 rounded-sm"
+            onClick={() => setSolver("astar")}
+          >
+            A*
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="outline" className="h-11 rounded-sm" onClick={swapEnds}>
+            Swap
+          </Button>
+          <Button
+            type="button"
+            variant={watching ? "default" : "outline"}
+            className="h-11 rounded-sm"
+            onClick={() => setWatching((value) => !value)}
+          >
+            {watching ? "Watching" : "Watch trip"}
+          </Button>
+        </div>
+
         <Button
-          onClick={calculateRoute}
-          disabled={isCalculating || nodes.length === 0}
+          onClick={() => runSearch(false)}
+          disabled={nodes.length === 0}
           className="h-11 w-full rounded-sm"
         >
-          {isCalculating ? "Working the graph…" : "Get Route"}
+          Get Route
         </Button>
 
         {error && (
@@ -159,37 +208,60 @@ const RouteFinder = ({
           </p>
         )}
 
-        {route && (
+        {primary && (
           <div className="space-y-3 border-t border-border pt-3">
             <div className="flex items-end justify-between gap-3">
               <span className="stamp">Travel</span>
               <span className="metric-num text-2xl text-primary">
-                {route.totalTime}
+                {primary.minutes}
                 <span className="ml-1 text-xs text-muted-foreground">min</span>
               </span>
             </div>
-            <div className="flex items-end justify-between gap-3">
-              <span className="stamp">Closures avoided</span>
-              <span className="metric-num text-sm">{route.closuresAvoided}</span>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="border border-border px-2 py-1.5">
+                <div className="stamp">Hops</div>
+                <div className="metric-num">{primary.hops}</div>
+              </div>
+              <div className="border border-border px-2 py-1.5">
+                <div className="stamp">Visited</div>
+                <div className="metric-num">{primary.visited}</div>
+              </div>
             </div>
+
+            {compare && (
+              <p className="text-xs text-muted-foreground">
+                {compare.solver === "astar" ? "A*" : "Dijkstra"} also {compare.minutes} min / {compare.visited}{" "}
+                visited
+                {compare.path.join(">") === primary.path.join(">") ? " (same path)" : " (different path)"}.
+              </p>
+            )}
+
             <ol className="max-h-40 space-y-1 overflow-y-auto">
-              {route.steps.map((step, index) => (
-                <li
-                  key={`${step.from}-${step.to}-${index}`}
-                  className="flex items-center justify-between gap-2 border border-border/70 px-2 py-1.5 text-sm"
-                >
-                  <span>
-                    {nodeLabel(nodes, step.from)} – {nodeLabel(nodes, step.to)}
-                  </span>
-                  <span className="metric-num text-xs text-muted-foreground">
-                    {step.minutes} min · {trafficWord(step.traffic)}
-                  </span>
-                </li>
-              ))}
+              {primary.path.slice(0, -1).map((from, index) => {
+                const to = primary.path[index + 1];
+                return (
+                  <li
+                    key={`${from}-${to}`}
+                    className="flex items-center justify-between gap-2 border border-border/70 px-2 py-1.5 text-sm"
+                  >
+                    <span>
+                      {nodeLabel(nodes, from)} – {nodeLabel(nodes, to)}
+                    </span>
+                    <span className="metric-num text-xs text-muted-foreground">{index + 1}</span>
+                  </li>
+                );
+              })}
             </ol>
-            <p className="text-[11px] text-muted-foreground">
-              Dijkstra, using current closures and delay weights.
-            </p>
+
+            {alternate && (
+              <p className="text-xs text-muted-foreground">
+                Alternate {alternate.minutes} min via {alternate.path.map((id) => nodeLabel(nodes, id)).join(" · ")}
+              </p>
+            )}
+
+            <Button type="button" variant="outline" className="h-11 w-full rounded-sm" onClick={copyTrip}>
+              {copied ? "Copied" : "Copy trip"}
+            </Button>
           </div>
         )}
       </div>

@@ -87,7 +87,14 @@ You can also draw your own graph, import JSON/CSV, or switch city.
 ## Features
 
 - Live Karachi board on first paint
-- Route finder (Dijkstra) with named streets and minutes
+- Click two junctions on the map to set live and dest
+- Route finder with Dijkstra and A*, live delay weights
+- Alternate path (dashed) when a second route exists
+- Watch trip: recut the path as traffic moves
+- Close or jam a selected road
+- Copy trip to the clipboard
+- Search junctions by name
+- MST compare: Kruskal vs Prim
 - Traffic simulation, hold, speed, and incident clear
 - MST compare: Kruskal vs Prim
 - Graph builder and file import/export

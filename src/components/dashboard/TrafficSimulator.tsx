@@ -18,6 +18,7 @@ interface TrafficSimulatorProps {
   onClearAccidents: () => void;
   onTrafficLevelChange: (edgeId: string, level: number) => void;
   selectedEdge: string | null;
+  onToggleBlock: () => void;
 }
 
 const edgeId = (edge: Edge) => `${edge.from}-${edge.to}`;
@@ -35,6 +36,7 @@ const TrafficSimulator = ({
   onSimulateAccident,
   onClearAccidents,
   selectedEdge,
+  onToggleBlock,
 }: TrafficSimulatorProps) => {
   const congestedRoads = edges.filter((edge) => {
     const multiplier = trafficMultipliers[edgeId(edge)] || 1;
@@ -90,13 +92,24 @@ const TrafficSimulator = ({
           </div>
 
           {selectedEdge && (
-            <Button
-              variant="destructive"
-              className="h-11 w-full rounded-sm"
-              onClick={() => onSimulateAccident(selectedEdge)}
-            >
-              Close the selected link
-            </Button>
+            <div className="grid grid-cols-1 gap-2">
+              <Button
+                variant="destructive"
+                className="h-11 w-full rounded-sm"
+                onClick={onToggleBlock}
+              >
+                {edges.find((edge) => `${edge.from}-${edge.to}` === selectedEdge)?.isBlocked
+                  ? "Reopen selected link"
+                  : "Close selected link"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11 w-full rounded-sm"
+                onClick={() => onSimulateAccident(selectedEdge)}
+              >
+                Jam selected link
+              </Button>
+            </div>
           )}
         </div>
       )}

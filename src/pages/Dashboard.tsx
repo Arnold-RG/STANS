@@ -61,7 +61,10 @@ const Dashboard = () => {
   const [mstKind, setMstKind] = useState<"kruskal" | "prim">("kruskal");
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [liveId, setLiveId] = useState("");
+  const [destId, setDestId] = useState("");
   const [highlightedPath, setHighlightedPath] = useState<string[]>([]);
+  const [alternatePath, setAlternatePath] = useState<string[]>([]);
   const [mstEdges] = useState<Edge[]>([]);
   const [currentMapType, setCurrentMapType] = useState<MapType>(initialNetwork.mapType);
   const [algorithmStatus, setAlgorithmStatus] = useState<{
@@ -116,15 +119,43 @@ const Dashboard = () => {
     }
   };
 
-  const handleRouteCalculated = (path: string[]) => {
+  const handleRouteCalculated = (path: string[], alternate: string[]) => {
     setHighlightedPath(path);
+    setAlternatePath(alternate);
     setAlgorithmStatus({
-      name: "Dijkstra",
-      step: "Path on the board",
-      progress: 100,
-      details: [`${path.length} junctions`, path.join(" → ")],
+      name: "Path",
+      step: path.length ? "Path on the board" : "No path",
+      progress: path.length ? 100 : 0,
+      details: path.length ? [`${path.length} junctions`, path.join(" → ")] : ["Closed or disconnected"],
     });
     setActiveTab("map");
+  };
+
+  const handleNodeSelect = (id: string) => {
+    setSelectedNode(id);
+    if (!liveId || (liveId && destId)) {
+      setLiveId(id);
+      setDestId("");
+      setHighlightedPath([]);
+      setAlternatePath([]);
+      return;
+    }
+    if (id === liveId) return;
+    setDestId(id);
+  };
+
+  const toggleSelectedRoad = () => {
+    if (!selectedEdge) return;
+    setEdges((current) =>
+      current.map((edge) => {
+        const id = `${edge.from}-${edge.to}`;
+        const reverse = `${edge.to}-${edge.from}`;
+        if (id === selectedEdge || reverse === selectedEdge) {
+          return { ...edge, isBlocked: !edge.isBlocked };
+        }
+        return edge;
+      }),
+    );
   };
 
   const handleTabChange = (tab: string) => {
@@ -137,6 +168,10 @@ const Dashboard = () => {
       <RouteFinder
         nodes={nodes}
         edges={edges}
+        liveId={liveId}
+        destId={destId}
+        onLiveChange={setLiveId}
+        onDestChange={setDestId}
         onRouteCalculated={handleRouteCalculated}
         trafficMultipliers={trafficMultipliers}
       />
@@ -154,6 +189,7 @@ const Dashboard = () => {
         onClearAccidents={clearAccidents}
         onTrafficLevelChange={setTrafficLevel}
         selectedEdge={selectedEdge}
+        onToggleBlock={toggleSelectedRoad}
       />
       <button
         type="button"
@@ -225,11 +261,14 @@ const Dashboard = () => {
                   edges={edges}
                   trafficMultipliers={trafficMultipliers}
                   highlightedPath={highlightedPath}
+                  alternatePath={alternatePath}
                   mstEdges={mstEdges}
                   selectedEdge={selectedEdge}
                   onEdgeSelect={setSelectedEdge}
-                  onNodeSelect={setSelectedNode}
+                  onNodeSelect={handleNodeSelect}
                   currentNode={selectedNode}
+                  liveId={liveId}
+                  destId={destId}
                   visitedNodes={new Set()}
                   mapType={currentMapType}
                 />
@@ -279,6 +318,9 @@ const Dashboard = () => {
                     setEdges(templateEdges);
                     setCurrentMapType(mapType || null);
                     setHighlightedPath([]);
+                    setAlternatePath([]);
+                    setLiveId("");
+                    setDestId("");
                     setActiveTab("map");
                   }}
                 />

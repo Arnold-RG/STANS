@@ -26,12 +26,15 @@ interface TrafficMapCanvasProps {
   edges: Edge[];
   trafficMultipliers: { [key: string]: number };
   highlightedPath?: string[];
+  alternatePath?: string[];
   selectedEdge: string | null;
   onEdgeSelect: (edgeId: string | null) => void;
   onNodeSelect?: (nodeId: string) => void;
   mstEdges?: Edge[];
   visitedNodes?: Set<string>;
   currentNode?: string;
+  liveId?: string;
+  destId?: string;
   mapType?: MapType;
 }
 
@@ -40,12 +43,15 @@ const TrafficMapCanvas = ({
   edges,
   trafficMultipliers,
   highlightedPath = [],
+  alternatePath = [],
   selectedEdge,
   onEdgeSelect,
   onNodeSelect,
   mstEdges = [],
   visitedNodes = new Set(),
   currentNode,
+  liveId,
+  destId,
   mapType = null,
 }: TrafficMapCanvasProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -124,17 +130,30 @@ const TrafficMapCanvas = ({
     return false;
   };
 
+  const isEdgeInAlternate = (edge: Edge) => {
+    for (let i = 0; i < alternatePath.length - 1; i++) {
+      if (
+        (edge.from === alternatePath[i] && edge.to === alternatePath[i + 1]) ||
+        (edge.to === alternatePath[i] && edge.from === alternatePath[i + 1])
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const isEdgeInMST = (edge: Edge) => {
     return mstEdges.some(
-      mstEdge =>
+      (mstEdge) =>
         (mstEdge.from === edge.from && mstEdge.to === edge.to) ||
-        (mstEdge.from === edge.to && mstEdge.to === edge.from)
+        (mstEdge.from === edge.to && mstEdge.to === edge.from),
     );
   };
 
   const getEdgeColor = (edge: Edge) => {
     if (edge.isBlocked) return "hsl(var(--road))";
     if (isEdgeInPath(edge)) return "hsl(var(--primary))";
+    if (isEdgeInAlternate(edge)) return "hsl(var(--muted-foreground))";
     if (isEdgeInMST(edge)) return "hsl(var(--secondary))";
     
     const multiplier = trafficMultipliers[getEdgeId(edge)] || 1;
@@ -148,12 +167,15 @@ const TrafficMapCanvas = ({
 
   const getEdgeWidth = (edge: Edge) => {
     if (isEdgeInPath(edge)) return 5;
+    if (isEdgeInAlternate(edge)) return 3;
     if (isEdgeInMST(edge)) return 4;
     if (selectedEdge === getEdgeId(edge)) return 4;
     return 3;
   };
 
   const getNodeColor = (nodeId: string) => {
+    if (liveId === nodeId) return "hsl(var(--primary))";
+    if (destId === nodeId) return "hsl(var(--secondary))";
     if (currentNode === nodeId) return "hsl(var(--primary))";
     if (highlightedPath.includes(nodeId)) return "hsl(var(--primary))";
     if (visitedNodes.has(nodeId)) return "hsl(var(--secondary))";
@@ -323,7 +345,8 @@ const TrafficMapCanvas = ({
                 stroke={getEdgeColor(edge)}
                 strokeWidth={getEdgeWidth(edge)}
                 strokeLinecap="round"
-                className={`cursor-pointer transition-all duration-300 ${inPath ? 'animate-route-pulse' : ''}`}
+                strokeDasharray={isEdgeInAlternate(edge) && !inPath ? "6 4" : undefined}
+                className="cursor-pointer"
                 onClick={() => onEdgeSelect(isSelected ? null : edgeId)}
               />
               
@@ -357,8 +380,8 @@ const TrafficMapCanvas = ({
         {/* Nodes (Intersections) */}
         {nodes.map(node => {
           const isInPath = highlightedPath.includes(node.id);
-          const isStart = highlightedPath[0] === node.id;
-          const isEnd = highlightedPath[highlightedPath.length - 1] === node.id;
+          const isStart = liveId === node.id || highlightedPath[0] === node.id;
+          const isEnd = destId === node.id || highlightedPath[highlightedPath.length - 1] === node.id;
           const isCurrent = currentNode === node.id;
           
           return (
