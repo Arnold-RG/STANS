@@ -8,18 +8,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Edge } from "@/utils/kruskal";
-import { findAlternatePath, findPath, type PathResult, type Solver } from "@/utils/pathfinding";
+import { findAlternatePath, findPath, findPathVia, type PathResult, type Solver } from "@/utils/pathfinding";
 import { nodeLabel, type GraphNode } from "@/data/karachiNetwork";
+import type { SavedTrip } from "@/data/deskOps";
 
 interface RouteFinderProps {
   nodes: GraphNode[];
   edges: Edge[];
   liveId: string;
   destId: string;
+  viaId: string;
   onLiveChange: (id: string) => void;
   onDestChange: (id: string) => void;
-  onRouteCalculated: (path: string[], alternate: string[]) => void;
+  onViaChange: (id: string) => void;
+  onRouteCalculated: (path: string[], alternate: string[], minutes?: number) => void;
   trafficMultipliers: { [key: string]: number };
+  shiftScale: number;
+  onSaveTrip: (trip: Omit<SavedTrip, "id" | "savedAt">) => void;
+  registerCompute?: (fn: () => void) => void;
 }
 
 const RouteFinder = ({
@@ -27,10 +33,15 @@ const RouteFinder = ({
   edges,
   liveId,
   destId,
+  viaId,
   onLiveChange,
   onDestChange,
+  onViaChange,
   onRouteCalculated,
   trafficMultipliers,
+  shiftScale,
+  onSaveTrip,
+  registerCompute,
 }: RouteFinderProps) => {
   const [solver, setSolver] = useState<Solver>("dijkstra");
   const [primary, setPrimary] = useState<PathResult | null>(null);
@@ -57,7 +68,9 @@ const RouteFinder = ({
       return;
     }
 
-    const next = findPath(nodes, edges, trafficMultipliers, liveId, destId, solver);
+    const next = viaId
+      ? findPathVia(nodes, edges, trafficMultipliers, liveId, viaId, destId, solver, shiftScale)
+      : findPath(nodes, edges, trafficMultipliers, liveId, destId, solver, shiftScale);
     if (!next) {
       setPrimary(null);
       setCompare(null);
@@ -68,28 +81,34 @@ const RouteFinder = ({
     }
 
     const otherSolver: Solver = solver === "dijkstra" ? "astar" : "dijkstra";
-    const other = findPath(nodes, edges, trafficMultipliers, liveId, destId, otherSolver);
-    const alt = findAlternatePath(nodes, edges, trafficMultipliers, next);
+    const other = viaId
+      ? findPathVia(nodes, edges, trafficMultipliers, liveId, viaId, destId, otherSolver, shiftScale)
+      : findPath(nodes, edges, trafficMultipliers, liveId, destId, otherSolver, shiftScale);
+    const alt = findAlternatePath(nodes, edges, trafficMultipliers, next, shiftScale);
 
     setError(null);
     setPrimary(next);
-    setCompare(other && other.path.join(">") !== next.path.join(">") ? other : other);
+    setCompare(other);
     setAlternate(alt);
-    onRouteCalculated(next.path, alt?.path ?? []);
+    onRouteCalculated(next.path, alt?.path ?? [], next.minutes);
   };
+
+  useEffect(() => {
+    registerCompute?.(() => runSearch(false));
+  });
 
   useEffect(() => {
     if (!watching || !liveId || !destId) return;
     runSearch(true);
-    // Recut when the board moves. live/dest/solver are intentional.
+    // Recut when the board moves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watching, trafficMultipliers, edges, liveId, destId, solver]);
+  }, [watching, trafficMultipliers, edges, liveId, destId, viaId, solver, shiftScale]);
 
   const copyTrip = async () => {
     if (!primary) return;
     const lines = [
       `STANS trip · ${solver === "astar" ? "A*" : "Dijkstra"}`,
-      `${nodeLabel(nodes, liveId)} → ${nodeLabel(nodes, destId)}`,
+      `${nodeLabel(nodes, liveId)}${viaId ? ` via ${nodeLabel(nodes, viaId)}` : ""} → ${nodeLabel(nodes, destId)}`,
       `${primary.minutes} min · ${primary.hops} hops · ${primary.visited} nodes visited`,
       primary.path.map((id) => nodeLabel(nodes, id)).join(" → "),
     ];
@@ -115,7 +134,7 @@ const RouteFinder = ({
     <section className="dashboard-card p-3">
       <h2 className="stamp mb-3">Find a way through</h2>
       <p className="mb-3 text-xs text-muted-foreground">
-        Click two junctions on the map: first is live, second is dest.
+        Click two junctions on the map: first is live, second is dest. Optional via is a waypoint.
       </p>
       <div className="space-y-3">
         <input
@@ -123,17 +142,41 @@ const RouteFinder = ({
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search a junction"
           className="h-11 w-full rounded-sm border border-input bg-background px-3 text-sm"
+          disabled={nodes.length === 0}
         />
 
         <div className="space-y-1.5">
           <label className="stamp" htmlFor="live-point">
             Live
           </label>
-          <Select value={liveId || undefined} onValueChange={onLiveChange}>
+          <Select value={liveId || undefined} onValueChange={onLiveChange} disabled={nodes.length === 0}>
             <SelectTrigger id="live-point" className="h-11 w-full rounded-sm">
-              <SelectValue placeholder="Current junction" />
+              <SelectValue placeholder={nodes.length ? "Current junction" : "No junctions loaded"} />
             </SelectTrigger>
             <SelectContent>
+              {filteredNodes.map((node) => (
+                <SelectItem key={node.id} value={node.id}>
+                  {node.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="stamp" htmlFor="via-point">
+            Via
+          </label>
+          <Select
+            value={viaId || "none"}
+            onValueChange={(value) => onViaChange(value === "none" ? "" : value)}
+            disabled={nodes.length === 0}
+          >
+            <SelectTrigger id="via-point" className="h-11 w-full rounded-sm">
+              <SelectValue placeholder="Optional waypoint" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No waypoint</SelectItem>
               {filteredNodes.map((node) => (
                 <SelectItem key={node.id} value={node.id}>
                   {node.label}
@@ -147,9 +190,9 @@ const RouteFinder = ({
           <label className="stamp" htmlFor="dest-point">
             Dest
           </label>
-          <Select value={destId || undefined} onValueChange={onDestChange}>
+          <Select value={destId || undefined} onValueChange={onDestChange} disabled={nodes.length === 0}>
             <SelectTrigger id="dest-point" className="h-11 w-full rounded-sm">
-              <SelectValue placeholder="Where they need to be" />
+              <SelectValue placeholder={nodes.length ? "Where they need to be" : "No junctions loaded"} />
             </SelectTrigger>
             <SelectContent>
               {filteredNodes.map((node) => (
@@ -241,11 +284,12 @@ const RouteFinder = ({
                 const to = primary.path[index + 1];
                 return (
                   <li
-                    key={`${from}-${to}`}
+                    key={`${from}-${to}-${index}`}
                     className="flex items-center justify-between gap-2 border border-border/70 px-2 py-1.5 text-sm"
                   >
                     <span>
                       {nodeLabel(nodes, from)} – {nodeLabel(nodes, to)}
+                      {viaId && to === viaId ? " · via" : ""}
                     </span>
                     <span className="metric-num text-xs text-muted-foreground">{index + 1}</span>
                   </li>
@@ -259,9 +303,27 @@ const RouteFinder = ({
               </p>
             )}
 
-            <Button type="button" variant="outline" className="h-11 w-full rounded-sm" onClick={copyTrip}>
-              {copied ? "Copied" : "Copy trip"}
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant="outline" className="h-11 rounded-sm" onClick={copyTrip}>
+                {copied ? "Copied" : "Copy trip"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-sm"
+                onClick={() =>
+                  onSaveTrip({
+                    liveId,
+                    destId,
+                    viaId: viaId || undefined,
+                    minutes: primary.minutes,
+                    label: `${nodeLabel(nodes, liveId)}${viaId ? ` via ${nodeLabel(nodes, viaId)}` : ""} → ${nodeLabel(nodes, destId)}`,
+                  })
+                }
+              >
+                Save trip
+              </Button>
+            </div>
           </div>
         )}
       </div>

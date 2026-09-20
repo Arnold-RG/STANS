@@ -23,13 +23,14 @@ export function liveWeight(
   edge: Edge,
   multipliers: Record<string, number>,
   inflate: Record<string, number> = {},
+  shiftScale = 1,
 ): number {
   if (edge.isBlocked) return Number.POSITIVE_INFINITY;
   const key = edgeKey(edge.from, edge.to);
   const reverse = edgeKey(edge.to, edge.from);
   const multiplier = multipliers[key] ?? multipliers[reverse] ?? 1;
   const bump = inflate[key] ?? inflate[reverse] ?? 1;
-  return edge.weight * BAND[edge.traffic] * multiplier * bump;
+  return edge.weight * BAND[edge.traffic] * multiplier * bump * shiftScale;
 }
 
 function neighbors(node: string, edges: Edge[]): { id: string; edge: Edge }[] {
@@ -75,6 +76,7 @@ function search(
   target: string,
   solver: Solver,
   inflate: Record<string, number> = {},
+  shiftScale = 1,
 ): PathResult | null {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const scale = solver === "astar" ? heuristicScale(nodes, edges) : 0;
@@ -128,7 +130,9 @@ function search(
 
     for (const { id, edge } of neighbors(current, edges)) {
       if (closed.has(id)) continue;
-      const tentative = (gScore.get(current) ?? Number.POSITIVE_INFINITY) + liveWeight(edge, multipliers, inflate);
+      const tentative =
+        (gScore.get(current) ?? Number.POSITIVE_INFINITY) +
+        liveWeight(edge, multipliers, inflate, shiftScale);
       if (tentative >= (gScore.get(id) ?? Number.POSITIVE_INFINITY)) continue;
       cameFrom.set(id, current);
       gScore.set(id, tentative);
@@ -147,9 +151,35 @@ export function findPath(
   source: string,
   target: string,
   solver: Solver = "dijkstra",
+  shiftScale = 1,
 ): PathResult | null {
   if (source === target) return null;
-  return search(nodes, edges, multipliers, source, target, solver);
+  return search(nodes, edges, multipliers, source, target, solver, {}, shiftScale);
+}
+
+export function findPathVia(
+  nodes: GraphNode[],
+  edges: Edge[],
+  multipliers: Record<string, number>,
+  source: string,
+  via: string,
+  target: string,
+  solver: Solver = "dijkstra",
+  shiftScale = 1,
+): PathResult | null {
+  if (!via || via === source || via === target) {
+    return findPath(nodes, edges, multipliers, source, target, solver, shiftScale);
+  }
+  const first = findPath(nodes, edges, multipliers, source, via, solver, shiftScale);
+  const second = findPath(nodes, edges, multipliers, via, target, solver, shiftScale);
+  if (!first || !second) return null;
+  return {
+    path: [...first.path, ...second.path.slice(1)],
+    minutes: first.minutes + second.minutes,
+    hops: first.hops + second.hops,
+    visited: first.visited + second.visited,
+    solver,
+  };
 }
 
 export function findAlternatePath(
@@ -157,6 +187,7 @@ export function findAlternatePath(
   edges: Edge[],
   multipliers: Record<string, number>,
   primary: PathResult,
+  shiftScale = 1,
 ): PathResult | null {
   const inflate: Record<string, number> = {};
   for (let i = 0; i < primary.path.length - 1; i += 1) {
@@ -165,7 +196,16 @@ export function findAlternatePath(
     inflate[edgeKey(from, to)] = 4;
     inflate[edgeKey(to, from)] = 4;
   }
-  const next = search(nodes, edges, multipliers, primary.path[0], primary.path[primary.path.length - 1], "dijkstra", inflate);
+  const next = search(
+    nodes,
+    edges,
+    multipliers,
+    primary.path[0],
+    primary.path[primary.path.length - 1],
+    "dijkstra",
+    inflate,
+    shiftScale,
+  );
   if (!next) return null;
   if (next.path.join(">") === primary.path.join(">")) return null;
   return { ...next, solver: "dijkstra" };

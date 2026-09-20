@@ -29,7 +29,7 @@ export const useTrafficSimulation = ({
   edges,
   onEdgesUpdate,
 }: UseTrafficSimulationProps): UseTrafficSimulationReturn => {
-  const [isSimulating, setIsSimulating] = useState(true);
+  const [isSimulating, setIsSimulating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [trafficMultipliers, setTrafficMultipliers] = useState<TrafficMultipliers>({});

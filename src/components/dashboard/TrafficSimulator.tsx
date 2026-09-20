@@ -46,7 +46,7 @@ const TrafficSimulator = ({
   return (
     <section className="dashboard-card p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="stamp">Night board</h2>
+        <h2 className="stamp">Live board</h2>
         <Switch
           checked={isSimulating}
           onCheckedChange={onToggleSimulation}
@@ -55,11 +55,13 @@ const TrafficSimulator = ({
       </div>
 
       <p className="mb-3 text-sm text-muted-foreground">
-        {isSimulating
-          ? isPaused
-            ? "Board paused. Weights hold."
-            : "Karachi is running. Weights drift every few seconds."
-          : "Board is dark. Turn it on to watch delay move."}
+        {edges.length === 0
+          ? "No graph on the board. Load a sector first."
+          : isSimulating
+            ? isPaused
+              ? "Board paused. Weights hold."
+              : "Weights drift every few seconds under the current shift."
+            : "Board is dark. Turn it on to watch delay move."}
       </p>
 
       {isSimulating && (

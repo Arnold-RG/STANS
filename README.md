@@ -33,15 +33,15 @@
 
 STANS is a browser application for finding a way through a road network when traffic is not static. Junctions are **nodes**. Roads are **edges**. The cost of a hop is **minutes under live delay**, not raw distance.
 
-It opens on **Karachi Sector 04** — Clifton, DHA, Saddar, Gulshan, Jauhar, Korangi, and the rest — with the night simulation already running. You pick a live junction and a destination. Dijkstra walks the current weights and paints the path on the board.
+The desk **opens empty**. No city, trip, unit, or dispatch event is preloaded. Load Karachi, Lahore, Islamabad, or another sector from Cities, import a graph, or draw one in Builder. Then pick a live junction and a destination. Dijkstra or A* walks the current weights (including the shift profile) and paints the path on the board.
 
 This repository is also a full DevOps package: multi-stage Docker image, Nginx SPA routing, GitHub Actions to GHCR, and optional SSH / Terraform / Kubernetes deploy.
 
 | | |
 | --- | --- |
 | Product | Traffic-operations desk (React + TypeScript + Vite) |
-| Graph work | Dijkstra, Kruskal, Prim, Union-Find |
-| Cities | Karachi (default), Lahore, Islamabad, Peshawar, Quetta, Faisalabad, Multan, Rawalpindi, Pakistan trunk |
+| Graph work | Dijkstra, A*, Kruskal, Prim, Union-Find |
+| Cities | Optional templates only — nothing preloaded |
 | Ship | `node:22-alpine` build → `nginx:1.27-alpine` image on port 80 |
 | CI | `.github/workflows/deploy.yml` → `ghcr.io/arnold-rg/stans` |
 
@@ -53,7 +53,7 @@ The map is the product. Side rails hold the route form and the incident feed. Ph
   <img src="docs/images/desk.png" width="920" alt="STANS Karachi traffic desk">
 </p>
 
-<p align="center"><em>Karachi on the board. Live / Dest on the left. Sector load on the right.</em></p>
+<p align="center"><em>Empty board until a sector is loaded. Live / Dest on the left. Sector load on the right.</em></p>
 
 <p align="center">
   <img src="docs/images/cities.png" width="920" alt="STANS city templates">
@@ -61,7 +61,7 @@ The map is the product. Side rails hold the route form and the incident feed. Ph
 
 <p align="center"><em>Cities tab — load Pakistan, Karachi, Lahore, Islamabad, and the other sectors.</em></p>
 
-On a phone the same app is usable: Map, Route, Desk, Cities. Vite binds `::` on port **8080**, so other devices on the LAN can open it.
+On a phone the same app is usable: Map, Stats, Brief, Desk. Vite binds `::` on port **8080**, so other devices on the LAN can open it.
 
 ## How routing works
 
@@ -71,9 +71,11 @@ City graph
   edges  = roads (minutes, traffic band, blocked flag)
         │
         ▼
-Effective weight  =  minutes  ×  traffic band  ×  live multiplier
+Effective weight  =  minutes  ×  traffic band  ×  live multiplier  ×  shift scale
         │
         ├─ Dijkstra   →  one path under current closures
+        ├─ A*         →  same costs, heuristic toward dest
+        ├─ Via        →  two searches chained through a waypoint
         ├─ Kruskal    →  cheapest tree that still connects the sector
         └─ Prim       →  same MST, grown from a seed junction
 ```
@@ -86,23 +88,20 @@ You can also draw your own graph, import JSON/CSV, or switch city.
 
 ## Features
 
-- Live Karachi board on first paint
-- Click two junctions on the map to set live and dest
-- Route finder with Dijkstra and A*, live delay weights
-- Alternate path (dashed) when a second route exists
-- Watch trip: recut the path as traffic moves
-- Close or jam a selected road
-- Copy trip to the clipboard
-- Search junctions by name
-- MST compare: Kruskal vs Prim
-- Traffic simulation, hold, speed, and incident clear
-- MST compare: Kruskal vs Prim
-- Graph builder and file import/export
-- City templates for eight Pakistan networks plus abstract topologies
-- Notes / documentation inside the app (`/docs`)
-- Dark desk by default, newsprint light theme
-- Installable web app (`manifest.webmanifest`)
-- Production image: Alpine, port 80, client-side routing, `/health`
+The desk ships these operations surfaces. None of them are filled until an operator loads a sector or writes them.
+
+1. **Empty-board desk** — cold start, no dummy traffic. Clear board wipes the sector.
+2. **Shift profiles** — Night / AM / Midday / PM scale every hop.
+3. **Route desk** — Dijkstra and A*, via waypoint, alternate path, watch trip, copy/save.
+4. **Saved trips** — recall a computed run without retyping junctions.
+5. **Dispatch log** — closures, loads, routes, and exports in time order.
+6. **Inspector** — junction degree, live delay, open/closed state.
+7. **Closure queue** — list of blocked links with one-click reopen.
+8. **Connectivity** — Union-Find components and isolated junctions.
+9. **Heat index + analytics** — corridor pressure, hottest links, mean hop.
+10. **Brief** — SITREP, operator sign-on, duty notes, field units, print/copy.
+
+Also: command palette (`⌘K`), keyboard tabs, session JSON export, city templates, graph builder, file import, MST (Kruskal/Prim), dark desk by default, installable PWA, Alpine/Nginx production image.
 
 ## Stack
 
@@ -110,7 +109,7 @@ You can also draw your own graph, import JSON/CSV, or switch city.
 | --- | --- |
 | UI | React 18, TypeScript, Vite, Tailwind |
 | Algorithms | `src/utils/dijkstra.ts`, `kruskal.ts`, `prim.ts`, `unionFind.ts` |
-| City data | `src/data/karachiNetwork.ts` |
+| City data | Optional templates in `src/data/karachiNetwork.ts` and Cities |
 | Container | Multi-stage Dockerfile, Nginx `try_files` |
 | CI/CD | GitHub Actions → GHCR, optional SSH |
 | IaC (optional) | Terraform (AWS), Ansible, Kubernetes manifests |
@@ -145,10 +144,11 @@ Server bootstrap, Certbot, firewall (22/80/443), Terraform, Ansible, Prometheus/
 ## Repository layout
 
 ```
-src/pages/Dashboard.tsx          # the desk
-src/data/karachiNetwork.ts       # default city graph
+src/pages/Dashboard.tsx          # the desk (empty on start)
+src/data/karachiNetwork.ts       # optional Karachi template
+src/data/deskOps.ts              # shifts, log, trips, operator
 src/utils/                       # Dijkstra, Kruskal, Prim, Union-Find
-src/components/dashboard/        # map, route, incidents, header
+src/components/dashboard/        # map, route, ops panels, header
 Dockerfile                       # node:22-alpine → nginx:1.27-alpine
 .github/workflows/deploy.yml     # CI/CD
 docs/DEPLOYMENT.md               # production notes

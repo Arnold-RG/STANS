@@ -1,7 +1,7 @@
 {
-  "name": "STANS — Karachi traffic desk",
+  "name": "STANS — Traffic operations desk",
   "short_name": "STANS",
-  "description": "Municipal traffic-operations desk. Live Karachi network, Dijkstra routing, Kruskal and Prim MST.",
+  "description": "Municipal traffic-operations desk. Empty board on start. Live routing, shift profiles, Dijkstra and MST.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#16140f",

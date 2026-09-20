@@ -297,9 +297,51 @@
   .asphalt-desk {
     background-color: hsl(var(--background));
     background-image:
-      linear-gradient(hsl(var(--desk-grain) / 0.18) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--desk-grain) / 0.18) 1px, transparent 1px);
-    background-size: 48px 48px;
+      linear-gradient(hsl(var(--desk-grain) / 0.14) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--desk-grain) / 0.14) 1px, transparent 1px),
+      radial-gradient(1200px 500px at 50% -10%, hsl(var(--primary) / 0.06), transparent 60%);
+    background-size: 40px 40px, 40px 40px, auto;
+  }
+
+  .desk-ticker {
+    background: linear-gradient(90deg, hsl(var(--card)) 0%, hsl(var(--muted) / 0.35) 100%);
+  }
+
+  .desk-strip {
+    background-image: linear-gradient(180deg, hsl(var(--card)), hsl(var(--background) / 0.4));
+  }
+
+  .status-wall {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    background: hsl(var(--card));
+  }
+
+  .heat-track {
+    height: 0.5rem;
+    width: 100%;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--muted));
+  }
+
+  .heat-fill {
+    height: 100%;
+  }
+
+  .heat-clear {
+    background: hsl(var(--traffic-clear));
+  }
+
+  .heat-warm {
+    background: hsl(var(--traffic-moderate));
+  }
+
+  .heat-hot {
+    background: hsl(var(--traffic-heavy));
+  }
+
+  .sitrep-sheet {
+    background: hsl(var(--muted) / 0.35);
+    border: 1px solid hsl(var(--border));
   }
 
   .city-grid {
@@ -311,7 +353,7 @@
 
   .dashboard-card {
     @apply rounded-sm border border-border bg-card;
-    box-shadow: none;
+    box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.04);
   }
 
   .stamp {

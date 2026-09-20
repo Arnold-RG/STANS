@@ -35,7 +35,9 @@ interface TrafficMapCanvasProps {
   currentNode?: string;
   liveId?: string;
   destId?: string;
+  viaId?: string;
   mapType?: MapType;
+  onLoadCities?: () => void;
 }
 
 const TrafficMapCanvas = ({
@@ -52,7 +54,9 @@ const TrafficMapCanvas = ({
   currentNode,
   liveId,
   destId,
+  viaId,
   mapType = null,
+  onLoadCities,
 }: TrafficMapCanvasProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -176,6 +180,7 @@ const TrafficMapCanvas = ({
   const getNodeColor = (nodeId: string) => {
     if (liveId === nodeId) return "hsl(var(--primary))";
     if (destId === nodeId) return "hsl(var(--secondary))";
+    if (viaId === nodeId) return "hsl(var(--warning))";
     if (currentNode === nodeId) return "hsl(var(--primary))";
     if (highlightedPath.includes(nodeId)) return "hsl(var(--primary))";
     if (visitedNodes.has(nodeId)) return "hsl(var(--secondary))";
@@ -279,7 +284,7 @@ const TrafficMapCanvas = ({
   };
 
   return (
-    <div className="relative h-full min-h-[280px] w-full overflow-hidden border border-border bg-card city-grid">
+    <div className="relative h-full min-h-[280px] w-full overflow-hidden border-0 bg-card city-grid">
       {/* Canvas Controls */}
       <CanvasZoomControls
         zoom={zoom}
@@ -382,6 +387,7 @@ const TrafficMapCanvas = ({
           const isInPath = highlightedPath.includes(node.id);
           const isStart = liveId === node.id || highlightedPath[0] === node.id;
           const isEnd = destId === node.id || highlightedPath[highlightedPath.length - 1] === node.id;
+          const isVia = viaId === node.id;
           const isCurrent = currentNode === node.id;
           
           return (
@@ -454,18 +460,26 @@ const TrafficMapCanvas = ({
           );
         })}
 
-        {/* Empty state */}
-        {nodes.length === 0 && (
-          <text
-            x="450"
-            y="250"
-            textAnchor="middle"
-            className="fill-muted-foreground font-mono text-sm"
-          >
-            Board is empty. Load a city.
-          </text>
-        )}
       </svg>
+
+      {nodes.length === 0 && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+          <div className="pointer-events-auto dashboard-card max-w-md px-6 py-8 text-center">
+            <p className="stamp mb-2">Empty board</p>
+            <h2 className="mb-2 font-mono text-lg tracking-[0.18em]">NO SECTOR LOADED</h2>
+            <p className="mb-5 text-sm text-muted-foreground">
+              The desk starts dark. Load a city template, import a graph, or draw junctions in Builder.
+            </p>
+            <button
+              type="button"
+              onClick={onLoadCities}
+              className="h-11 w-full rounded-sm border border-primary bg-primary px-4 font-mono text-[11px] uppercase tracking-[0.16em] text-primary-foreground"
+            >
+              Open city templates
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

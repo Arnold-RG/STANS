@@ -1,6 +1,3 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Grid3x3, GitBranch, Circle, GitMerge, Layout, MapPin, Map, Building2, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Edge } from "@/utils/kruskal";
@@ -643,36 +640,26 @@ const GraphTemplates = ({ onLoadTemplate }: GraphTemplatesProps) => {
     {
       name: "Grid Network",
       description: "4x4 grid representing city streets",
-      icon: Grid3x3,
-      color: "secondary",
       action: generateGrid,
     },
     {
       name: "Tree Topology",
       description: "Hierarchical binary tree structure",
-      icon: GitBranch,
-      color: "accent",
       action: generateTree,
     },
     {
       name: "Complete Graph",
       description: "All nodes connected to each other",
-      icon: Circle,
-      color: "primary",
       action: generateComplete,
     },
     {
       name: "Bipartite Graph",
       description: "Two distinct sets with cross-connections",
-      icon: GitMerge,
-      color: "secondary",
       action: generateBipartite,
     },
     {
       name: "Star Topology",
       description: "Central hub with radial connections",
-      icon: Layout,
-      color: "accent",
       action: generateStar,
     },
   ];
@@ -681,155 +668,118 @@ const GraphTemplates = ({ onLoadTemplate }: GraphTemplatesProps) => {
     {
       name: "Pakistan",
       description: "Major cities road network of Pakistan",
-      icon: Map,
-      color: "primary",
       action: generatePakistanMap,
     },
     {
       name: "Karachi",
       description: "20 major areas including Clifton, DHA, Gulshan, Korangi",
-      icon: Building2,
-      color: "secondary",
       action: generateKarachiMap,
     },
     {
       name: "Lahore",
       description: "18 areas including Gulberg, DHA, Model Town, Johar Town",
-      icon: Landmark,
-      color: "accent",
       action: generateLahoreMap,
     },
     {
       name: "Islamabad",
       description: "20 sectors including F-6, F-7, G-9, Blue Area",
-      icon: MapPin,
-      color: "primary",
       action: generateIslamabadMap,
     },
     {
       name: "Peshawar",
       description: "15 areas including Hayatabad, University Town, Saddar",
-      icon: Building2,
-      color: "secondary",
       action: generatePeshawarMap,
     },
     {
       name: "Quetta",
       description: "14 areas including Satellite Town, Jinnah Town, Cantonment",
-      icon: Landmark,
-      color: "accent",
       action: generateQuettaMap,
     },
     {
       name: "Faisalabad",
       description: "15 areas including D Ground, Peoples Colony, Madina Town",
-      icon: Building2,
-      color: "primary",
       action: generateFaisalabadMap,
     },
     {
       name: "Multan",
       description: "14 areas including Cantt, DHA, Shah Rukn-e-Alam, Model Town",
-      icon: Landmark,
-      color: "secondary",
       action: generateMultanMap,
     },
     {
       name: "Rawalpindi",
       description: "15 areas including Saddar, Bahria Town, Chaklala, Raja Bazaar",
-      icon: Building2,
-      color: "accent",
       action: generateRawalpindiMap,
     },
   ];
 
   return (
-    <Card className="border-2">
-      <CardHeader>
-        <CardTitle className="font-display">Graph Templates Library</CardTitle>
-        <CardDescription>
-          Quick-load common network topologies and Pakistani city maps
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="maps" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="maps" className="flex items-center gap-2">
-              <Map className="w-4 h-4" />
-              Maps
-            </TabsTrigger>
-            <TabsTrigger value="graphs" className="flex items-center gap-2">
-              <Grid3x3 className="w-4 h-4" />
-              Graph Templates
-            </TabsTrigger>
-          </TabsList>
+    <section className="dashboard-card p-4">
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <p className="stamp">Sector library</p>
+          <h2 className="font-mono text-lg tracking-[0.16em]">LOAD A NETWORK</h2>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+            The board stays empty until you pick a city or an abstract topology. Nothing is preloaded.
+          </p>
+        </div>
+      </div>
+      <Tabs defaultValue="maps" className="w-full">
+        <TabsList className="mb-4 h-11 w-full justify-start rounded-none bg-transparent p-0">
+          <TabsTrigger
+            value="maps"
+            className="h-11 rounded-none border-b-2 border-transparent px-4 font-mono text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            Cities
+          </TabsTrigger>
+          <TabsTrigger
+            value="graphs"
+            className="h-11 rounded-none border-b-2 border-transparent px-4 font-mono text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            Topologies
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="maps" className="mt-0">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mapTemplates.map((template, index) => (
-                <Card 
-                  key={index}
-                  className={`border-2 hover:shadow-lg transition-all duration-300 cursor-pointer group hover:border-primary/50`}
-                  onClick={template.action}
-                >
-                  <CardContent className="pt-6 space-y-4">
-                    <div className={`w-12 h-12 rounded-lg bg-${template.color}/10 flex items-center justify-center group-hover:bg-${template.color}/20 transition-colors`}>
-                      <template.icon className={`w-6 h-6 text-${template.color}`} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">{template.name}</h3>
-                      <p className="text-sm text-muted-foreground">{template.description}</p>
-                    </div>
-                    <Button 
-                      className="w-full"
-                      variant="default"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        template.action();
-                      }}
-                    >
-                      Load Map
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
+        <TabsContent value="maps" className="mt-0">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {mapTemplates.map((template, index) => (
+              <button
+                key={template.name}
+                type="button"
+                onClick={template.action}
+                className="dashboard-card tap-target p-4 text-left hover:border-primary"
+              >
+                <p className="stamp mb-2">{String(index + 1).padStart(2, "0")}</p>
+                <h3 className="font-mono text-sm tracking-[0.12em]">{template.name.toUpperCase()}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{template.description}</p>
+                <span className="mt-4 inline-block font-mono text-[11px] uppercase tracking-[0.16em] text-primary">
+                  Load sector
+                </span>
+              </button>
+            ))}
+          </div>
+        </TabsContent>
 
-          <TabsContent value="graphs" className="mt-0">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {graphTemplates.map((template, index) => (
-                <Card 
-                  key={index}
-                  className={`border-2 hover:shadow-lg transition-all duration-300 cursor-pointer group`}
-                  onClick={template.action}
-                >
-                  <CardContent className="pt-6 space-y-4">
-                    <div className={`w-12 h-12 rounded-lg bg-${template.color}/10 flex items-center justify-center group-hover:bg-${template.color}/20 transition-colors`}>
-                      <template.icon className={`w-6 h-6 text-${template.color}`} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">{template.name}</h3>
-                      <p className="text-sm text-muted-foreground">{template.description}</p>
-                    </div>
-                    <Button 
-                      className="w-full"
-                      variant="secondary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        template.action();
-                      }}
-                    >
-                      Load Template
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+        <TabsContent value="graphs" className="mt-0">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {graphTemplates.map((template, index) => (
+              <button
+                key={template.name}
+                type="button"
+                onClick={template.action}
+                className="dashboard-card tap-target p-4 text-left hover:border-primary"
+              >
+                <p className="stamp mb-2">{String(index + 1).padStart(2, "0")}</p>
+                <h3 className="font-mono text-sm tracking-[0.12em]">{template.name.toUpperCase()}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{template.description}</p>
+                <span className="mt-4 inline-block font-mono text-[11px] uppercase tracking-[0.16em] text-primary">
+                  Load topology
+                </span>
+              </button>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </section>
   );
 };
 

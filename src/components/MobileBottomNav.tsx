@@ -6,9 +6,9 @@ interface MobileBottomNavProps {
 
 const navItems = [
   { id: "map", label: "Map" },
-  { id: "route", label: "Route" },
+  { id: "analytics", label: "Stats" },
+  { id: "brief", label: "Brief" },
   { id: "desk", label: "Desk" },
-  { id: "cities", label: "Cities" },
 ] as const;
 
 const MobileBottomNav = ({ activeTab, onTabChange, onOpenDesk }: MobileBottomNavProps) => {
