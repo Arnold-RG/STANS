@@ -1,85 +1,77 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { 
-  Car, 
-  BookOpen, 
-  Activity,
-  Radio
-} from "lucide-react";
-import { motion } from "framer-motion";
 
 interface DashboardHeaderProps {
   isSimulating: boolean;
-  networkHealth: 'optimal' | 'strained' | 'congested';
+  networkHealth: "optimal" | "strained" | "congested";
+  sectorName?: string;
 }
 
-const DashboardHeader = ({ isSimulating, networkHealth }: DashboardHeaderProps) => {
-  const getHealthColor = () => {
-    switch (networkHealth) {
-      case 'optimal': return 'bg-secondary text-secondary-foreground';
-      case 'strained': return 'bg-warning text-warning-foreground';
-      case 'congested': return 'bg-destructive text-destructive-foreground';
-    }
-  };
+const formatClock = (date: Date) =>
+  date.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+const DashboardHeader = ({
+  isSimulating,
+  networkHealth,
+  sectorName = "KARACHI · SECTOR 04",
+}: DashboardHeaderProps) => {
+  const [clock, setClock] = useState(() => formatClock(new Date()));
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setClock(formatClock(new Date()));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const healthLabel =
+    networkHealth === "optimal" ? "CLEAR" : networkHealth === "strained" ? "DELAYED" : "HEAVY";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center justify-between px-4 md:px-6">
-        {/* Logo & Title */}
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Car className="w-6 h-6 text-primary" />
-            </div>
-            {isSimulating && (
-              <motion.div
-                className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-secondary"
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ repeat: Infinity, duration: 1.5 }}
-              />
-            )}
-          </div>
-          <div>
-            <h1 className="text-lg font-display font-bold tracking-tight">
-              STANS
-            </h1>
-            <p className="text-xs text-muted-foreground hidden sm:block">
-              Traffic Control Dashboard
-            </p>
-          </div>
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
+      <div className="flex h-12 items-center justify-between gap-3 px-3 md:px-4">
+        <div className="flex min-w-0 items-baseline gap-3">
+          <h1 className="font-mono text-sm font-semibold tracking-widest text-foreground">
+            STANS
+          </h1>
+          <p className="stamp hidden truncate sm:block">{sectorName}</p>
         </div>
 
-        {/* Center Status */}
-        <div className="hidden md:flex items-center gap-4">
-          {isSimulating && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10"
-            >
-              <Radio className="w-4 h-4 text-primary animate-pulse" />
-              <span className="text-sm font-medium">Live Simulation Active</span>
-            </motion.div>
-          )}
-          
+        <div className="hidden items-center gap-4 md:flex">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Network:</span>
-            <Badge className={getHealthColor()}>
-              {networkHealth.charAt(0).toUpperCase() + networkHealth.slice(1)}
-            </Badge>
+            <span
+              className={`h-2 w-2 rounded-sm ${
+                isSimulating
+                  ? "bg-primary animate-lamp-live"
+                  : "bg-traffic-blocked"
+              }`}
+              aria-hidden
+            />
+            <span className="stamp text-foreground">
+              {isSimulating ? "Karachi is running" : "Desk idle"}
+            </span>
           </div>
+          <span className="stamp">{healthLabel}</span>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <Link to="/docs">
-            <Button variant="outline" size="sm" className="gap-2">
-              <BookOpen className="w-4 h-4" />
-              <span className="hidden sm:inline">Documentation</span>
-            </Button>
+        <div className="flex items-center gap-3">
+          <time
+            dateTime={clock}
+            className="font-mono text-xs tabular-nums text-foreground md:text-sm"
+          >
+            {clock}
+          </time>
+          <Link
+            to="/docs"
+            className="stamp tap-target inline-flex items-center text-muted-foreground hover:text-foreground"
+          >
+            Docs
           </Link>
           <ThemeToggle />
         </div>

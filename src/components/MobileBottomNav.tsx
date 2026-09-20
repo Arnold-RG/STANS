@@ -1,39 +1,41 @@
-import { Grid3x3, Hammer, Navigation, Network, Map } from "lucide-react";
-
 interface MobileBottomNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  onOpenDesk: () => void;
 }
 
-const MobileBottomNav = ({ activeTab, onTabChange }: MobileBottomNavProps) => {
-  const navItems = [
-    { id: "map", label: "Map", icon: Network },
-    { id: "templates", label: "Templates", icon: Map },
-    { id: "builder", label: "Builder", icon: Hammer },
-    { id: "dijkstra", label: "Route", icon: Navigation },
-  ];
+const navItems = [
+  { id: "map", label: "Map" },
+  { id: "route", label: "Route" },
+  { id: "desk", label: "Desk" },
+  { id: "cities", label: "Cities" },
+] as const;
 
+const MobileBottomNav = ({ activeTab, onTabChange, onOpenDesk }: MobileBottomNavProps) => {
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border safe-area-inset-bottom">
-      <div className="grid grid-cols-4 h-16">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background md:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <div className="grid h-14 grid-cols-4">
         {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          
+          const isActive = item.id === "desk" ? false : activeTab === item.id;
           return (
             <button
               key={item.id}
-              onClick={() => onTabChange(item.id)}
-              className={`
-                flex flex-col items-center justify-center gap-1 transition-colors
-                ${isActive 
-                  ? 'text-primary bg-primary/10' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              type="button"
+              onClick={() => {
+                if (item.id === "desk") {
+                  onOpenDesk();
+                  return;
                 }
-              `}
+                onTabChange(item.id);
+              }}
+              className={`tap-target flex flex-col items-center justify-center text-xs ${
+                isActive ? "bg-muted text-foreground" : "text-muted-foreground"
+              }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? 'scale-110' : ''} transition-transform`} />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              {item.label}
             </button>
           );
         })}

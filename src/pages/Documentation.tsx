@@ -1,9 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, BookOpen, Code, GitBranch, ExternalLink } from "lucide-react";
+import { Code, GitBranch } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -323,27 +322,23 @@ export default function Documentation() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between px-4">
+      <header className="sticky top-0 z-50 border-b border-border bg-background">
+        <div className="container flex h-12 items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link to="/">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to App
-              </Button>
+            <Link to="/" className="stamp tap-target inline-flex items-center text-muted-foreground hover:text-foreground">
+              ← Desk
             </Link>
-            <div className="hidden sm:flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              <span className="font-semibold">STANS Documentation</span>
-            </div>
+            <span className="hidden font-mono text-sm tracking-widest sm:inline">STANS / NOTES</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <ThemeToggle />
-            <a href="https://github.com/weedu230/STANS" target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="gap-2">
-                <GitBranch className="h-4 w-4" />
-                <span className="hidden sm:inline">View on GitHub</span>
-              </Button>
+            <a
+              href="https://github.com/Arnold-RG/STANS"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="stamp tap-target inline-flex items-center text-muted-foreground hover:text-foreground"
+            >
+              GitHub
             </a>
           </div>
         </div>

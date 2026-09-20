@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { useCanvasZoom } from "@/hooks/useCanvasZoom";
 import CanvasZoomControls from "@/components/CanvasZoomControls";
@@ -49,7 +49,26 @@ const TrafficMapCanvas = ({
   mapType = null,
 }: TrafficMapCanvasProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  
+
+  const bounds = useMemo(() => {
+    if (nodes.length === 0) {
+      return { x: 0, y: 0, w: 800, h: 480 };
+    }
+    const pad = 72;
+    const xs = nodes.map((node) => node.x);
+    const ys = nodes.map((node) => node.y);
+    const minX = Math.min(...xs) - pad;
+    const minY = Math.min(...ys) - pad;
+    const maxX = Math.max(...xs) + pad;
+    const maxY = Math.max(...ys) + pad + 20;
+    return {
+      x: minX,
+      y: minY,
+      w: Math.max(maxX - minX, 320),
+      h: Math.max(maxY - minY, 240),
+    };
+  }, [nodes]);
+
   const {
     zoom,
     setZoom,
@@ -59,7 +78,12 @@ const TrafficMapCanvas = ({
     handleMouseMove,
     handleMouseUp,
     resetView,
-  } = useCanvasZoom({ baseWidth: 900, baseHeight: 500 });
+  } = useCanvasZoom({
+    baseWidth: bounds.w,
+    baseHeight: bounds.h,
+    originX: bounds.x,
+    originY: bounds.y,
+  });
 
   // Render appropriate map outline based on mapType
   const renderMapOutline = () => {
@@ -233,7 +257,7 @@ const TrafficMapCanvas = ({
   };
 
   return (
-    <div className="relative w-full h-full rounded-xl overflow-hidden border bg-card city-grid">
+    <div className="relative h-full min-h-[280px] w-full overflow-hidden border border-border bg-card city-grid">
       {/* Canvas Controls */}
       <CanvasZoomControls
         zoom={zoom}
@@ -306,27 +330,26 @@ const TrafficMapCanvas = ({
               {/* Traffic flow particles */}
               {!edge.isBlocked && renderTrafficFlow(edge, fromPos.x, fromPos.y, toPos.x, toPos.y)}
               
-              {/* Weight label */}
-              <g transform={`translate(${(fromPos.x + toPos.x) / 2}, ${(fromPos.y + toPos.y) / 2})`}>
-                <rect
-                  x={-15}
-                  y={-10}
-                  width={30}
-                  height={20}
-                  rx={4}
-                  fill="hsl(var(--background))"
-                  stroke={getEdgeColor(edge)}
-                  strokeWidth={1}
-                  opacity={0.95}
-                />
-                <text
-                  textAnchor="middle"
-                  dy="4"
-                  className="text-xs font-medium fill-foreground"
-                >
-                  {edge.weight}m
-                </text>
-              </g>
+              {isSelected && (
+                <g transform={`translate(${(fromPos.x + toPos.x) / 2}, ${(fromPos.y + toPos.y) / 2})`}>
+                  <rect
+                    x={-16}
+                    y={-9}
+                    width={32}
+                    height={16}
+                    fill="hsl(var(--background))"
+                    stroke={getEdgeColor(edge)}
+                    strokeWidth={1}
+                  />
+                  <text
+                    textAnchor="middle"
+                    dy="4"
+                    className="fill-foreground font-mono text-[10px]"
+                  >
+                    {edge.weight} min
+                  </text>
+                </g>
+              )}
             </g>
           );
         })}
@@ -396,12 +419,11 @@ const TrafficMapCanvas = ({
                 />
               )}
               
-              {/* Label */}
               <text
                 x={node.x}
-                y={node.y + getNodeRadius(node.id) + 16}
+                y={node.y + getNodeRadius(node.id) + 14}
                 textAnchor="middle"
-                className="text-xs font-medium fill-foreground"
+                className="fill-foreground font-sans text-[10px]"
               >
                 {node.label}
               </text>
@@ -415,9 +437,9 @@ const TrafficMapCanvas = ({
             x="450"
             y="250"
             textAnchor="middle"
-            className="text-lg fill-muted-foreground"
+            className="fill-muted-foreground font-mono text-sm"
           >
-            Load a road network to begin
+            Board is empty. Load a city.
           </text>
         )}
       </svg>

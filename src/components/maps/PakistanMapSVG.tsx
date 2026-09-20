@@ -35,7 +35,7 @@ export const KarachiOutline = () => (
       strokeWidth="2"
       strokeLinejoin="round"
     />
-    <text x="350" y="420" textAnchor="middle" className="text-sm font-semibold fill-secondary">
+    <text x="350" y="408" textAnchor="middle" className="fill-muted-foreground font-mono text-[10px]">
       KARACHI
     </text>
   </g>

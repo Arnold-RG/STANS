@@ -1,0 +1,18 @@
+{
+  "name": "STANS — Karachi traffic desk",
+  "short_name": "STANS",
+  "description": "Municipal traffic-operations desk. Live Karachi network, Dijkstra routing, Kruskal and Prim MST.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#16140f",
+  "theme_color": "#16140f",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

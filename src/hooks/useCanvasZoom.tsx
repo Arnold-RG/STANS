@@ -1,8 +1,10 @@
-import { useState, useCallback, WheelEvent, MouseEvent } from "react";
+import { useState, useCallback, useEffect, WheelEvent, MouseEvent } from "react";
 
 interface UseCanvasZoomProps {
   baseWidth?: number;
   baseHeight?: number;
+  originX?: number;
+  originY?: number;
 }
 
 interface UseCanvasZoomReturn {
@@ -21,14 +23,21 @@ interface UseCanvasZoomReturn {
   resetView: () => void;
 }
 
-export const useCanvasZoom = ({ 
-  baseWidth = 800, 
-  baseHeight = 500 
+export const useCanvasZoom = ({
+  baseWidth = 800,
+  baseHeight = 500,
+  originX = 0,
+  originY = 0,
 }: UseCanvasZoomProps = {}): UseCanvasZoomReturn => {
   const [zoom, setZoom] = useState(100);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [panOffset, setPanOffset] = useState({ x: originX, y: originY });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    setPanOffset({ x: originX, y: originY });
+    setZoom(100);
+  }, [originX, originY, baseWidth, baseHeight]);
 
   const scaledWidth = baseWidth * (100 / zoom);
   const scaledHeight = baseHeight * (100 / zoom);
@@ -69,8 +78,8 @@ export const useCanvasZoom = ({
 
   const resetView = useCallback(() => {
     setZoom(100);
-    setPanOffset({ x: 0, y: 0 });
-  }, []);
+    setPanOffset({ x: originX, y: originY });
+  }, [originX, originY]);
 
   return {
     zoom,

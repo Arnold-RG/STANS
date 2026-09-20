@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import TrafficSimulator from "@/components/dashboard/TrafficSimulator";
 import RouteFinder from "@/components/dashboard/RouteFinder";
@@ -6,23 +6,15 @@ import SystemDashboard from "@/components/dashboard/SystemDashboard";
 import TrafficMapCanvas from "@/components/dashboard/TrafficMapCanvas";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { useTrafficSimulation } from "@/hooks/useTrafficSimulation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Network, 
-  Route, 
-  TreeDeciduous, 
-  Navigation,
-  Hammer,
-  Grid3x3,
-  ChevronLeft,
-  ChevronRight,
-  Upload,
-  GraduationCap,
-  Sparkles
-} from "lucide-react";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import type { Edge } from "@/utils/kruskal";
 import GraphBuilder from "@/components/GraphBuilder";
 import GraphTemplates from "@/components/GraphTemplates";
@@ -33,36 +25,55 @@ import GraphImport from "@/components/GraphImport";
 import EducationalMode from "@/components/EducationalMode";
 import { InteractiveTutorial } from "@/components/InteractiveTutorial";
 import type { MapType } from "@/components/maps/PakistanMapSVG";
+import { cloneKarachiNetwork, KARACHI_SECTOR, type GraphNode } from "@/data/karachiNetwork";
 
-interface Node {
-  id: string;
-  x: number;
-  y: number;
-  label: string;
-}
+const initialNetwork = cloneKarachiNetwork();
+
+const sectorLabel = (mapType: MapType): string => {
+  switch (mapType) {
+    case "karachi":
+      return KARACHI_SECTOR;
+    case "lahore":
+      return "LAHORE · SECTOR 07";
+    case "islamabad":
+      return "ISLAMABAD · BLUE";
+    case "peshawar":
+      return "PESHAWAR · RING";
+    case "quetta":
+      return "QUETTA · CANTONMENT";
+    case "faisalabad":
+      return "FAISALABAD · CLOCK";
+    case "multan":
+      return "MULTAN · CANTT";
+    case "rawalpindi":
+      return "RAWALPINDI · SADDAR";
+    case "pakistan":
+      return "PAKISTAN · TRUNK";
+    default:
+      return "CUSTOM · DESK";
+  }
+};
 
 const Dashboard = () => {
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  const [nodes, setNodes] = useState<GraphNode[]>(initialNetwork.nodes);
+  const [edges, setEdges] = useState<Edge[]>(initialNetwork.edges);
   const [activeTab, setActiveTab] = useState("map");
+  const [mstKind, setMstKind] = useState<"kruskal" | "prim">("kruskal");
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [highlightedPath, setHighlightedPath] = useState<string[]>([]);
-  const [mstEdges, setMstEdges] = useState<Edge[]>([]);
-  const [currentMapType, setCurrentMapType] = useState<MapType>(null);
+  const [mstEdges] = useState<Edge[]>([]);
+  const [currentMapType, setCurrentMapType] = useState<MapType>(initialNetwork.mapType);
   const [algorithmStatus, setAlgorithmStatus] = useState<{
     name: string;
     step: string;
     progress: number;
     details?: string[];
   } | null>(null);
-  
-  // Sidebar state
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
-  
-  // Tutorial state
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [deskOpen, setDeskOpen] = useState(false);
 
   const handleEdgesUpdate = useCallback((updatedEdges: Edge[]) => {
     setEdges(updatedEdges);
@@ -85,12 +96,11 @@ const Dashboard = () => {
     onEdgesUpdate: handleEdgesUpdate,
   });
 
-  // Calculate network health
   const networkHealth = useMemo(() => {
     if (edges.length === 0) return "optimal";
-    const congestedCount = edges.filter(e => {
-      const multiplier = trafficMultipliers[`${e.from}-${e.to}`] || 1;
-      return multiplier > 1.5 || e.traffic === 'high';
+    const congestedCount = edges.filter((edge) => {
+      const multiplier = trafficMultipliers[`${edge.from}-${edge.to}`] || 1;
+      return multiplier > 1.5 || edge.traffic === "high";
     }).length;
     const ratio = congestedCount / edges.length;
     if (ratio > 0.5) return "congested";
@@ -109,166 +119,107 @@ const Dashboard = () => {
   const handleRouteCalculated = (path: string[]) => {
     setHighlightedPath(path);
     setAlgorithmStatus({
-      name: "Dijkstra's Algorithm",
-      step: "Route found!",
+      name: "Dijkstra",
+      step: "Path on the board",
       progress: 100,
-      details: [`Path: ${path.join(" → ")}`, `Stops: ${path.length}`]
+      details: [`${path.length} junctions`, path.join(" → ")],
     });
+    setActiveTab("map");
   };
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setDeskOpen(false);
+  };
+
+  const deskControls = (
+    <div className="space-y-4">
+      <RouteFinder
+        nodes={nodes}
+        edges={edges}
+        onRouteCalculated={handleRouteCalculated}
+        trafficMultipliers={trafficMultipliers}
+      />
+      <TrafficSimulator
+        isSimulating={isSimulating}
+        isPaused={isPaused}
+        speed={speed}
+        nodes={nodes}
+        edges={edges}
+        trafficMultipliers={trafficMultipliers}
+        onToggleSimulation={handleToggleSimulation}
+        onTogglePause={togglePause}
+        onSpeedChange={setSpeed}
+        onSimulateAccident={simulateAccident}
+        onClearAccidents={clearAccidents}
+        onTrafficLevelChange={setTrafficLevel}
+        selectedEdge={selectedEdge}
+      />
+      <button
+        type="button"
+        onClick={() => setIsTutorialOpen(true)}
+        className="stamp tap-target text-left text-muted-foreground hover:text-foreground"
+      >
+        How this works
+      </button>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-background city-grid-bg flex flex-col">
-      {/* Header */}
-      <DashboardHeader 
-        isSimulating={isSimulating} 
+    <div className="asphalt-desk flex h-[100dvh] flex-col overflow-hidden">
+      <DashboardHeader
+        isSimulating={isSimulating}
         networkHealth={networkHealth}
+        sectorName={sectorLabel(currentMapType)}
       />
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Sidebar - Controls */}
-        <aside 
-          className={`
-            hidden md:block
-            ${leftSidebarOpen ? 'w-72 xl:w-80' : 'w-0'} 
-            transition-all duration-300 border-r border-border 
-            bg-card/50 backdrop-blur-sm overflow-hidden flex-shrink-0
-          `}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <aside
+          className={`hidden flex-shrink-0 overflow-hidden border-r border-border bg-card md:block ${
+            leftSidebarOpen ? "w-72 xl:w-80" : "w-0"
+          }`}
         >
           <ScrollArea className="h-full">
-            <div className="p-4 space-y-4">
-              {/* Traffic Simulator */}
-              <TrafficSimulator
-                isSimulating={isSimulating}
-                isPaused={isPaused}
-                speed={speed}
-                edges={edges}
-                trafficMultipliers={trafficMultipliers}
-                onToggleSimulation={handleToggleSimulation}
-                onTogglePause={togglePause}
-                onSpeedChange={setSpeed}
-                onSimulateAccident={simulateAccident}
-                onClearAccidents={clearAccidents}
-                onTrafficLevelChange={setTrafficLevel}
-                selectedEdge={selectedEdge}
-              />
-
-              {/* Route Finder */}
-              <RouteFinder
-                nodes={nodes}
-                edges={edges}
-                onRouteCalculated={handleRouteCalculated}
-                trafficMultipliers={trafficMultipliers}
-              />
-
-              {/* Quick Actions */}
-              <Card className="dashboard-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start"
-                    onClick={() => setActiveTab("builder")}
-                  >
-                    <Hammer className="w-4 h-4 mr-2" />
-                    Build Network
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start"
-                    onClick={() => setActiveTab("templates")}
-                  >
-                    <Grid3x3 className="w-4 h-4 mr-2" />
-                    Load Template
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start"
-                    onClick={() => setActiveTab("import")}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Import/Export
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start"
-                    onClick={() => setActiveTab("learn")}
-                  >
-                    <GraduationCap className="w-4 h-4 mr-2" />
-                    Learn Mode
-                  </Button>
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="w-full justify-start"
-                    onClick={() => setIsTutorialOpen(true)}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Start Tutorial
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            <div className="p-3">{deskControls}</div>
           </ScrollArea>
         </aside>
 
-        {/* Toggle Left Sidebar (Desktop only) */}
         <button
+          type="button"
           onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-          className="hidden md:block absolute top-1/2 -translate-y-1/2 z-20 bg-card border border-border rounded-r-lg p-1 hover:bg-muted transition-colors"
-          style={{ left: leftSidebarOpen ? '288px' : '0' }}
+          className="absolute top-1/2 z-20 hidden h-11 w-6 -translate-y-1/2 items-center justify-center border border-border bg-card text-xs text-muted-foreground md:flex"
+          style={{ left: leftSidebarOpen ? "18rem" : "0" }}
+          aria-label={leftSidebarOpen ? "Hide route desk" : "Show route desk"}
         >
-          {leftSidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          {leftSidebarOpen ? "‹" : "›"}
         </button>
 
-        {/* Center - Main Visualization */}
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <div className="border-b border-border px-2 md:px-4 py-2 bg-card/30 backdrop-blur-sm overflow-x-auto">
-              <TabsList className="h-auto flex flex-wrap gap-1 bg-transparent p-0">
-                <TabsTrigger value="map" className="text-[10px] md:text-xs gap-1 px-2 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Network className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  <span className="hidden sm:inline">Traffic</span> Map
-                </TabsTrigger>
-                <TabsTrigger value="kruskal" className="text-[10px] md:text-xs gap-1 px-2 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Route className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  Kruskal's
-                </TabsTrigger>
-                <TabsTrigger value="dijkstra" className="text-[10px] md:text-xs gap-1 px-2 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Navigation className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  Dijkstra's
-                </TabsTrigger>
-                <TabsTrigger value="prim" className="text-[10px] md:text-xs gap-1 px-2 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <TreeDeciduous className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  Prim's
-                </TabsTrigger>
-                <TabsTrigger value="builder" className="text-[10px] md:text-xs gap-1 px-2 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Hammer className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  Builder
-                </TabsTrigger>
-                <TabsTrigger value="templates" className="text-[10px] md:text-xs gap-1 px-2 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Grid3x3 className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  Templates
-                </TabsTrigger>
-                <TabsTrigger value="import" className="text-[10px] md:text-xs gap-1 px-2 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Upload className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  Import
-                </TabsTrigger>
-                <TabsTrigger value="learn" className="text-[10px] md:text-xs gap-1 px-2 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <GraduationCap className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  Learn
-                </TabsTrigger>
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
+            <div className="hidden overflow-x-auto border-b border-border bg-card px-2 md:block">
+              <TabsList className="h-11 w-max justify-start gap-0 rounded-none bg-transparent p-0">
+                {[
+                  ["map", "Map"],
+                  ["route", "Route"],
+                  ["mst", "MST"],
+                  ["builder", "Builder"],
+                  ["cities", "Cities"],
+                  ["files", "Files"],
+                  ["notes", "Notes"],
+                ].map(([value, label]) => (
+                  <TabsTrigger
+                    key={value}
+                    value={value}
+                    className="h-11 rounded-none border-b-2 border-transparent px-3 font-mono text-[11px] uppercase tracking-wide data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground"
+                  >
+                    {label}
+                  </TabsTrigger>
+                ))}
               </TabsList>
             </div>
 
-            <div className="flex-1 overflow-auto p-2 md:p-4">
-              <TabsContent value="map" className="m-0 h-full min-h-[300px] md:min-h-[400px]">
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <TabsContent value="map" className="mt-0 h-full">
                 <TrafficMapCanvas
                   nodes={nodes}
                   edges={edges}
@@ -284,91 +235,108 @@ const Dashboard = () => {
                 />
               </TabsContent>
 
-              <TabsContent value="kruskal" className="m-0">
-                <GraphVisualization nodes={nodes} edges={edges} />
-              </TabsContent>
-
-              <TabsContent value="dijkstra" className="m-0">
+              <TabsContent value="route" className="mt-0 h-full overflow-auto p-2 md:p-4">
                 <DijkstraVisualization nodes={nodes} edges={edges} />
               </TabsContent>
 
-              <TabsContent value="prim" className="m-0">
-                <PrimVisualization nodes={nodes} edges={edges} />
+              <TabsContent value="mst" className="mt-0 h-full overflow-auto p-2 md:p-4">
+                <div className="mb-3 flex gap-2">
+                  <Button
+                    variant={mstKind === "kruskal" ? "default" : "outline"}
+                    className="h-11 rounded-sm"
+                    onClick={() => setMstKind("kruskal")}
+                  >
+                    Kruskal
+                  </Button>
+                  <Button
+                    variant={mstKind === "prim" ? "default" : "outline"}
+                    className="h-11 rounded-sm"
+                    onClick={() => setMstKind("prim")}
+                  >
+                    Prim
+                  </Button>
+                </div>
+                {mstKind === "kruskal" ? (
+                  <GraphVisualization nodes={nodes} edges={edges} />
+                ) : (
+                  <PrimVisualization nodes={nodes} edges={edges} />
+                )}
               </TabsContent>
 
-              <TabsContent value="builder" className="m-0">
-                <GraphBuilder 
-                  nodes={nodes} 
-                  edges={edges} 
-                  setNodes={setNodes} 
-                  setEdges={setEdges} 
+              <TabsContent value="builder" className="mt-0 h-full overflow-auto p-2 md:p-4">
+                <GraphBuilder
+                  nodes={nodes}
+                  edges={edges}
+                  setNodes={setNodes}
+                  setEdges={setEdges}
                 />
               </TabsContent>
 
-              <TabsContent value="templates" className="m-0">
-                <GraphTemplates 
+              <TabsContent value="cities" className="mt-0 h-full overflow-auto p-2 md:p-4">
+                <GraphTemplates
                   onLoadTemplate={(templateNodes, templateEdges, mapType) => {
                     setNodes(templateNodes);
                     setEdges(templateEdges);
                     setCurrentMapType(mapType || null);
+                    setHighlightedPath([]);
                     setActiveTab("map");
-                  }} 
+                  }}
                 />
               </TabsContent>
 
-              <TabsContent value="import" className="m-0">
-                <GraphImport 
+              <TabsContent value="files" className="mt-0 h-full overflow-auto p-2 md:p-4">
+                <GraphImport
                   onImportGraph={(data) => {
                     setNodes(data.nodes);
-                    setEdges(data.edges.map(e => ({
-                      from: e.from,
-                      to: e.to,
-                      weight: e.weight,
-                      traffic: e.traffic > 0.6 ? 'high' : e.traffic > 0.3 ? 'medium' : 'low',
-                      isBlocked: e.blocked
-                    })));
+                    setEdges(
+                      data.edges.map((edge) => ({
+                        from: edge.from,
+                        to: edge.to,
+                        weight: edge.weight,
+                        traffic: edge.traffic > 0.6 ? "high" : edge.traffic > 0.3 ? "medium" : "low",
+                        isBlocked: edge.blocked,
+                      })),
+                    );
+                    setCurrentMapType(null);
                     setActiveTab("map");
                   }}
                   currentGraph={{
                     nodes,
-                    edges: edges.map(e => ({
-                      from: e.from,
-                      to: e.to,
-                      weight: e.weight,
-                      traffic: e.traffic === 'low' ? 0.3 : e.traffic === 'medium' ? 0.6 : 0.9,
-                      blocked: e.isBlocked || false
-                    }))
+                    edges: edges.map((edge) => ({
+                      from: edge.from,
+                      to: edge.to,
+                      weight: edge.weight,
+                      traffic: edge.traffic === "low" ? 0.3 : edge.traffic === "medium" ? 0.6 : 0.9,
+                      blocked: edge.isBlocked || false,
+                    })),
                   }}
                 />
               </TabsContent>
 
-              <TabsContent value="learn" className="m-0">
+              <TabsContent value="notes" className="mt-0 h-full overflow-auto p-2 md:p-4">
                 <EducationalMode />
               </TabsContent>
             </div>
           </Tabs>
         </main>
 
-        {/* Toggle Right Sidebar (Desktop only) */}
         <button
+          type="button"
           onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
-          className="hidden md:block absolute top-1/2 -translate-y-1/2 z-20 bg-card border border-border rounded-l-lg p-1 hover:bg-muted transition-colors"
-          style={{ right: rightSidebarOpen ? '288px' : '0' }}
+          className="absolute top-1/2 z-20 hidden h-11 w-6 -translate-y-1/2 items-center justify-center border border-border bg-card text-xs text-muted-foreground md:flex"
+          style={{ right: rightSidebarOpen ? "18rem" : "0" }}
+          aria-label={rightSidebarOpen ? "Hide sector load" : "Show sector load"}
         >
-          {rightSidebarOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          {rightSidebarOpen ? "›" : "‹"}
         </button>
 
-        {/* Right Sidebar - Metrics & Insights */}
-        <aside 
-          className={`
-            hidden md:block
-            ${rightSidebarOpen ? 'w-72 xl:w-80' : 'w-0'} 
-            transition-all duration-300 border-l border-border 
-            bg-card/50 backdrop-blur-sm overflow-hidden flex-shrink-0
-          `}
+        <aside
+          className={`hidden flex-shrink-0 overflow-hidden border-l border-border bg-card md:block ${
+            rightSidebarOpen ? "w-72 xl:w-80" : "w-0"
+          }`}
         >
           <ScrollArea className="h-full">
-            <div className="p-4">
+            <div className="p-3">
               <SystemDashboard
                 nodes={nodes}
                 edges={edges}
@@ -379,9 +347,8 @@ const Dashboard = () => {
           </ScrollArea>
         </aside>
       </div>
-      
-      {/* Interactive Tutorial */}
-      <InteractiveTutorial 
+
+      <InteractiveTutorial
         isOpen={isTutorialOpen}
         onClose={() => setIsTutorialOpen(false)}
         nodes={nodes}
@@ -390,11 +357,35 @@ const Dashboard = () => {
         onTabChange={setActiveTab}
       />
 
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-      
-      {/* Spacer for mobile bottom nav */}
-      <div className="md:hidden h-16" />
+      <Drawer open={deskOpen} onOpenChange={setDeskOpen}>
+        <DrawerContent className="rounded-none border-border bg-background md:hidden">
+          <DrawerHeader className="border-b border-border text-left">
+            <DrawerTitle className="font-mono text-sm tracking-[0.18em]">DESK</DrawerTitle>
+          </DrawerHeader>
+          <ScrollArea className="max-h-[70dvh]">
+            <div className="space-y-4 p-3 pb-8">
+              {deskControls}
+              <SystemDashboard
+                nodes={nodes}
+                edges={edges}
+                trafficMultipliers={trafficMultipliers}
+                algorithmStatus={algorithmStatus}
+              />
+            </div>
+          </ScrollArea>
+        </DrawerContent>
+      </Drawer>
+
+      <MobileBottomNav
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        onOpenDesk={() => setDeskOpen(true)}
+      />
+
+      <div
+        className="md:hidden"
+        style={{ height: "calc(3.5rem + env(safe-area-inset-bottom))" }}
+      />
     </div>
   );
 };

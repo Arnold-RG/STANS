@@ -1,80 +1,58 @@
-# Smart Traffic-Aware Navigation System (STANS)
+# STANS
 
-A map guidance system that helps individuals and businesses navigate efficiently by calculating optimal routes based on traffic conditions, blockades, and distance.
+Karachi does not have a spare network. When a link clogs or a road closes, a dispatcher still has to get a vehicle from Saddar to Korangi. STANS is a traffic-operations desk that treats the city as a weighted graph: junctions are nodes, roads are edges, and the cost of a hop is minutes under live delay, not just distance.
 
-## Project Overview
+On first paint the Karachi board is already up — Clifton, DHA, Saddar, Gulshan, Korangi — and the night simulation is running.
 
-This system develops a map guidance platform utilizing **Kruskal's algorithm** to compute the minimum spanning tree of a weighted directed graph. Graph weights are determined by distance, traffic intensity, and blockades, providing users with optimal routes they wouldn't know about ahead of time.
+## What you see
 
-## Features
+The desk opens on the Karachi board. Phones get the map first and a bottom bar (Map, Route, Desk, Cities). Wider screens add the route rail and the incident feed. Vite listens on every interface at port 8080, so other devices on the same network can open it.
 
-- **Graph Visualization**: Interactive 2D and 3D graph visualization with traffic-aware coloring
-- **Algorithm Comparison**: Side-by-side comparison of Kruskal's, Prim's, and Dijkstra's algorithms
-- **Route Calculator**: Calculate optimal paths between nodes
-- **Graph Builder**: Create custom graphs with nodes, edges, and traffic conditions
-- **Graph Templates**: Quick-load common network topologies (Grid, Tree, Complete, Bipartite, Star)
-- **Performance Benchmarking**: Measure and compare algorithm execution times
-- **Graph Metrics**: Analyze degree distribution, clustering coefficient, and betweenness centrality
-- **Interactive Tutorial**: Step-by-step guide to using the system
-- **Import/Export**: Support for JSON and CSV file formats
+## How it is built
 
-## Technologies Used
-
-- React + TypeScript
-- Vite
-- Tailwind CSS
-- Three.js (3D Visualization)
-- Framer Motion (Animations)
-- Recharts (Data Visualization)
-
--![Alt](https://repobeats.axiom.co/api/embed/a30bbe6fff62957b3cce362eef11556425224647.svg "Repobeats analytics image")
-
-
-
-## Demo
-https://github.com/user-attachments/assets/316df9d7-7e5a-47f3-9cdd-c0bae09110ae
-
-
-## Course Information
-
-- **Course**: Data Structures and Algorithms
-- **Class**: BSE-3(B)
-- **University**: Bahria University, Karachi Campus
-- **Course Instructor**: Engr. Majid Kalim
-- **Lab Instructor**: Engr. Saniya Sarim
-
-## Getting Started
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
+```
+City graph (nodes, edges, traffic, closures)
+        │
+        ▼
+Effective weights  =  minutes × traffic × live multiplier
+        │
+        ├─ Dijkstra / A*   →  one path through current closures
+        ├─ Kruskal / Prim  →  minimum spanning tree of the sector
+        └─ Vite build
+                │
+                ▼
+        Nginx static image  (node:22-alpine → nginx:1.27-alpine)
 ```
 
-## DevOps
+The dashboard is the product. Dijkstra, Kruskal, Prim, the graph builder, and JSON/CSV import stay on the same board.
 
-This fork adds production packaging for the [roadmap.sh STANS deployment project](https://roadmap.sh/projects/stans-navigation-deployment).
+## Run it
 
-| Layer | Choice |
-| --- | --- |
-| Container | Multi-stage `node:22-alpine` build + `nginx:1.27-alpine` runtime |
-| Routing | Nginx `try_files` for React client-side routes |
-| Registry | GitHub Container Registry (`ghcr.io/arnold-rg/stans`) |
-| CI/CD | `.github/workflows/deploy.yml` |
-| Production | Host Nginx + Certbot TLS, UFW 22/80/443, `--restart=always` |
+```bash
+npm install
+npm run dev
+```
+
+Vite binds `host: "::"` on **8080**, so the desk is on the LAN as well as `http://localhost:8080`.
+
+```bash
+npm run build
+npm run preview
+```
+
+## Docker and CI
 
 ```bash
 docker build -t stans-app .
 docker run --restart=always -p 8080:80 stans-app
 ```
 
-Full server, Terraform, Ansible, Kubernetes, Prometheus/Grafana, and logging steps are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Image: multi-stage `node:22-alpine` build, `nginx:1.27-alpine` runtime, `try_files` for client routes. Registry and workflow notes are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Workflow: `.github/workflows/deploy.yml`.
 
 ## License
 
-This project is developed as part of the Data Structures and Algorithms course at Bahria University.
+[GNU GPL-3.0](LICENSE)
+
+---
+
+Originally written for Data Structures and Algorithms, BSE-3(B), Bahria University Karachi Campus (Engr. Majid Kalim; lab: Engr. Saniya Sarim).

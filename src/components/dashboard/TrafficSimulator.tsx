@@ -1,24 +1,14 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Play, 
-  Pause, 
-  Zap, 
-  AlertTriangle, 
-  RotateCcw,
-  Car,
-  Gauge
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import type { Edge } from "@/utils/kruskal";
+import { nodeLabel, type GraphNode } from "@/data/karachiNetwork";
 
 interface TrafficSimulatorProps {
   isSimulating: boolean;
   isPaused: boolean;
   speed: number;
+  nodes: GraphNode[];
   edges: Edge[];
   trafficMultipliers: { [key: string]: number };
   onToggleSimulation: () => void;
@@ -30,10 +20,13 @@ interface TrafficSimulatorProps {
   selectedEdge: string | null;
 }
 
+const edgeId = (edge: Edge) => `${edge.from}-${edge.to}`;
+
 const TrafficSimulator = ({
   isSimulating,
   isPaused,
   speed,
+  nodes,
   edges,
   trafficMultipliers,
   onToggleSimulation,
@@ -41,128 +34,101 @@ const TrafficSimulator = ({
   onSpeedChange,
   onSimulateAccident,
   onClearAccidents,
-  onTrafficLevelChange,
   selectedEdge,
 }: TrafficSimulatorProps) => {
-  const getEdgeId = (edge: Edge) => `${edge.from}-${edge.to}`;
-  
-  const congestedRoads = edges.filter(e => {
-    const multiplier = trafficMultipliers[getEdgeId(e)] || 1;
-    return multiplier > 1.5 || e.traffic === 'high';
+  const congestedRoads = edges.filter((edge) => {
+    const multiplier = trafficMultipliers[edgeId(edge)] || 1;
+    return edge.isBlocked || multiplier > 1.5 || edge.traffic === "high";
   });
 
   return (
-    <Card className="dashboard-card border-l-4 border-l-primary">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Car className="w-5 h-5 text-primary" />
-          </div>
-          Live Traffic Control
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Main Toggle */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-          <div className="flex items-center gap-2">
-            <Gauge className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Live Simulation</span>
-          </div>
-          <Switch
-            checked={isSimulating}
-            onCheckedChange={onToggleSimulation}
-          />
-        </div>
+    <section className="dashboard-card p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="stamp">Night board</h2>
+        <Switch
+          checked={isSimulating}
+          onCheckedChange={onToggleSimulation}
+          aria-label="Run traffic board"
+        />
+      </div>
 
-        <AnimatePresence>
-          {isSimulating && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="space-y-4"
+      <p className="mb-3 text-sm text-muted-foreground">
+        {isSimulating
+          ? isPaused
+            ? "Board paused. Weights hold."
+            : "Karachi is running. Weights drift every few seconds."
+          : "Board is dark. Turn it on to watch delay move."}
+      </p>
+
+      {isSimulating && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              className="h-11 rounded-sm"
+              onClick={onTogglePause}
             >
-              {/* Play/Pause Controls */}
-              <div className="flex gap-2">
-                <Button
-                  variant={isPaused ? "default" : "outline"}
-                  size="sm"
-                  className="flex-1"
-                  onClick={onTogglePause}
-                >
-                  {isPaused ? (
-                    <>
-                      <Play className="w-4 h-4 mr-1" /> Resume
-                    </>
-                  ) : (
-                    <>
-                      <Pause className="w-4 h-4 mr-1" /> Pause
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onClearAccidents}
-                  className="flex-1"
-                >
-                  <RotateCcw className="w-4 h-4 mr-1" /> Reset
-                </Button>
-              </div>
+              {isPaused ? "Resume" : "Hold"}
+            </Button>
+            <Button variant="outline" className="h-11 rounded-sm" onClick={onClearAccidents}>
+              Clear incidents
+            </Button>
+          </div>
 
-              {/* Speed Control */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Zap className="w-4 h-4" /> Speed
-                  </span>
-                  <Badge variant="secondary">{speed}x</Badge>
-                </div>
-                <Slider
-                  value={[speed]}
-                  onValueChange={([v]) => onSpeedChange(v)}
-                  min={0.5}
-                  max={3}
-                  step={0.5}
-                  className="w-full"
-                />
-              </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="stamp">Clock rate</span>
+              <span className="metric-num text-xs">{speed.toFixed(1)}×</span>
+            </div>
+            <Slider
+              value={[speed]}
+              onValueChange={([value]) => onSpeedChange(value)}
+              min={0.5}
+              max={3}
+              step={0.5}
+            />
+          </div>
 
-              {/* Accident Simulator */}
-              {selectedEdge && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => onSimulateAccident(selectedEdge)}
-                >
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  Simulate Accident on Selected Road
-                </Button>
-              )}
-
-              {/* Congested Roads Count */}
-              {congestedRoads.length > 0 && (
-                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <div className="flex items-center gap-2 text-sm">
-                    <AlertTriangle className="w-4 h-4 text-destructive" />
-                    <span className="font-medium text-destructive">
-                      {congestedRoads.length} road(s) congested
-                    </span>
-                  </div>
-                </div>
-              )}
-            </motion.div>
+          {selectedEdge && (
+            <Button
+              variant="destructive"
+              className="h-11 w-full rounded-sm"
+              onClick={() => onSimulateAccident(selectedEdge)}
+            >
+              Close the selected link
+            </Button>
           )}
-        </AnimatePresence>
+        </div>
+      )}
 
-        {!isSimulating && (
-          <p className="text-xs text-muted-foreground text-center py-2">
-            Enable simulation to see live traffic changes
-          </p>
+      <div className="mt-4 border-t border-border pt-3">
+        <h3 className="stamp mb-2">Congested links</h3>
+        {congestedRoads.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No delayed links on the board.</p>
+        ) : (
+          <ul className="max-h-40 space-y-1 overflow-y-auto">
+            {congestedRoads.map((edge) => {
+              const multiplier = trafficMultipliers[edgeId(edge)] || 1;
+              const minutes = Math.round(edge.weight * multiplier);
+              const state = edge.isBlocked ? "closed" : multiplier > 2 ? "jammed" : "delayed";
+              return (
+                <li
+                  key={edgeId(edge)}
+                  className="flex items-center justify-between gap-2 border-b border-border/60 py-1.5 text-sm last:border-0"
+                >
+                  <span>
+                    {nodeLabel(nodes, edge.from)}–{nodeLabel(nodes, edge.to)}
+                  </span>
+                  <span className="metric-num text-xs text-muted-foreground">
+                    {state} · {minutes} min
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 };
 
