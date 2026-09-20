@@ -1,30 +1,48 @@
-# ── STAGE 1 : BUILD ─────────────────────────────────────────
-FROM node:20-alpine AS builder
-LABEL org.opencontainers.image.source="https://github.com/Ronel16/STANS"
+# syntax=docker/dockerfile:1.7
+
+# -----------------------------------------------------------------------------
+# Stage 1: Build the React / TypeScript application
+# Development dependencies stay in this stage and never reach the final image.
+# -----------------------------------------------------------------------------
+FROM node:22-alpine AS builder
+
 WORKDIR /app
-COPY package*.json ./
+
 ENV NODE_OPTIONS="--max-old-space-size=2048"
-RUN npm ci --frozen-lockfile
+
+COPY package.json package-lock.json ./
+RUN npm ci --frozen-lockfile \
+    && npm cache clean --force
+
 COPY . .
 RUN npm run build
 
-# ── STAGE 2 : SERVE ─────────────────────────────────────────
-FROM nginx:1.27-alpine
+# -----------------------------------------------------------------------------
+# Stage 2: Serve the compiled static files with Nginx (Alpine)
+# No Node.js runtime, no npm, no development dependencies.
+# -----------------------------------------------------------------------------
+FROM nginx:1.27-alpine AS runtime
+
+LABEL org.opencontainers.image.title="STANS" \
+      org.opencontainers.image.description="Smart Traffic-Aware Navigation System" \
+      org.opencontainers.image.source="https://github.com/Arnold-RG/STANS"
+
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Fix permissions pour USER non-root
 RUN chown -R nginx:nginx /usr/share/nginx/html \
     && chown -R nginx:nginx /var/cache/nginx \
     && chown -R nginx:nginx /var/log/nginx \
     && chown -R nginx:nginx /etc/nginx/conf.d \
-    && touch /var/run/nginx.pid \
-    && chown -R nginx:nginx /var/run/nginx.pid
+    && touch /tmp/nginx.pid \
+    && chown nginx:nginx /tmp/nginx.pid
 
-EXPOSE 80 443
+EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider --no-check-certificate https://localhost:443/ || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -q --spider http://127.0.0.1/health || exit 1
 
 USER nginx
+
 CMD ["nginx", "-g", "daemon off;"]

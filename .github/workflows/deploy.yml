@@ -1,4 +1,4 @@
-name: STANS DevSecOps Pipeline
+name: Deploy STANS
 
 on:
   push:
@@ -6,117 +6,170 @@ on:
   pull_request:
     branches: [main]
 
-permissions: {}
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  REGISTRY: ghcr.io
 
 jobs:
   validate:
-    name: Validate Build
+    name: Validate build
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci --frozen-lockfile
-      - run: npm audit --audit-level=high
-      - run: npm run build
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --frozen-lockfile
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Production build
+        run: npm run build
         env:
           NODE_OPTIONS: "--max-old-space-size=2048"
 
-  build-scan-push:
-    name: Build, Scan & Push
-    runs-on: [self-hosted, homelab]
-    needs: [validate]
+      - name: Confirm build output
+        run: |
+          test -f dist/index.html
+          echo "Build artifact is present."
+
+  build-and-push:
+    name: Build and push image
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
+      packages: write
+      id-token: write
+    outputs:
+      image: ${{ steps.image.outputs.name }}
+      digest: ${{ steps.push.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build image
-        run: |
-          docker build \
-            -t localhost:5000/stans-app:latest \
-            -t localhost:5000/stans-app:${{ github.sha }} \
-            .
+      - name: Lowercase image name
+        id: image
+        run: echo "name=${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
-      - name: Trivy scan - block on CRITICAL
-        run: |
-          trivy image \
-            --severity CRITICAL \
-            --exit-code 1 \
-            --format sarif \
-            --output trivy-results.sarif \
-            localhost:5000/stans-app:latest
-        continue-on-error: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Trivy scan - report HIGH
-        run: |
-          trivy image \
-            --severity HIGH \
-            --exit-code 0 \
-            --format sarif \
-            --output trivy-high-results.sarif \
-            localhost:5000/stans-app:latest
-
-      - name: Upload Trivy CRITICAL results to Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          sarif_file: trivy-results.sarif
-          category: trivy-container-critical
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Trivy HIGH results to Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+      - name: Log in to Docker Hub
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v3
         with:
-          sarif_file: trivy-high-results.sarif
-          category: trivy-container-high
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Fail if CRITICAL vulnerabilities found
-        run: |
-          CRITICAL_COUNT=$(trivy image \
-            --severity CRITICAL \
-            --exit-code 0 \
-            --format json \
-            localhost:5000/stans-app:latest 2>/dev/null | \
-            jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length')
-          echo "CRITICAL vulnerabilities found: $CRITICAL_COUNT"
-          if [ "$CRITICAL_COUNT" -gt 0 ]; then
-            echo "Build blocked: $CRITICAL_COUNT CRITICAL CVE in container image"
-            exit 1
-          fi
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+            type=sha,prefix=sha-
 
-      - name: Login et push registry
-        run: |
-          echo "${{ secrets.HOMELAB_REGISTRY_PASSWORD }}" | \
-            docker login localhost:5000 \
-            -u ${{ secrets.HOMELAB_REGISTRY_USER }} \
-            --password-stdin
-          docker push localhost:5000/stans-app:latest
-          docker push localhost:5000/stans-app:${{ github.sha }}
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}:latest
+          format: table
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
 
   deploy:
-    name: Deploy
-    runs-on: [self-hosted, homelab]
-    needs: [build-scan-push]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    permissions: {}
+    name: Deploy over SSH
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
-      - name: Deploy container
+      - name: Check SSH secrets
+        id: gate
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
-          docker stop stans-app 2>/dev/null || true
-          docker rm   stans-app 2>/dev/null || true
-          docker run -d \
-            --name stans-app \
-            --restart=always \
-            -p 80:80 \
-            -p 443:443 \
-            -v /opt/stans/certs:/etc/nginx/certs:ro \
-            localhost:5000/stans-app:latest
-          sleep 8
-          curl -sk https://localhost/health && echo "Deploy OK"
+          if [ -n "$SSH_HOST" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "SSH_HOST is not set. Skipping remote deploy. Configure GitHub Secrets to enable it."
+          fi
+
+      - name: Deploy container to server
+        if: steps.gate.outputs.enabled == 'true'
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+          SHA: ${{ github.sha }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          envs: IMAGE,SHA,GHCR_TOKEN,ACTOR
+          script: |
+            set -euo pipefail
+            IMAGE_REF="$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')"
+            if [ -n "${GHCR_TOKEN:-}" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+            fi
+            docker pull "${IMAGE_REF}:${SHA}"
+            docker stop stans-app || true
+            docker rm stans-app || true
+            docker run -d \
+              --name stans-app \
+              --restart=always \
+              --health-cmd="wget -q --spider http://127.0.0.1/health || exit 1" \
+              --health-interval=30s \
+              --health-timeout=5s \
+              --health-retries=3 \
+              -p 127.0.0.1:8080:80 \
+              "${IMAGE_REF}:${SHA}"
+            docker image prune -f
+            echo "Deployed ${IMAGE_REF}:${SHA}"

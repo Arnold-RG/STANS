@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stans
+  namespace: stans
+spec:
+  selector:
+    app: stans
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  type: ClusterIP

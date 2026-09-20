@@ -7,12 +7,20 @@ on:
       - 'Dockerfile'
       - 'nginx/**'
       - '.github/workflows/**'
+      - 'infra/**'
+      - 'k8s/**'
+      - 'deploy/**'
+      - 'docker-compose*.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'Dockerfile'
       - 'nginx/**'
       - '.github/workflows/**'
+      - 'infra/**'
+      - 'k8s/**'
+      - 'deploy/**'
+      - 'docker-compose*.yml'
   schedule:
     - cron: '0 6 * * 1'
 

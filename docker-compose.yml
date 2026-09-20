@@ -1,0 +1,16 @@
+services:
+  stans:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: stans-app:local
+    container_name: stans-app
+    restart: always
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

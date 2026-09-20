@@ -56,6 +56,25 @@ npm run dev
 npm run build
 ```
 
+## DevOps
+
+This fork adds production packaging for the [roadmap.sh STANS deployment project](https://roadmap.sh/projects/stans-navigation-deployment).
+
+| Layer | Choice |
+| --- | --- |
+| Container | Multi-stage `node:22-alpine` build + `nginx:1.27-alpine` runtime |
+| Routing | Nginx `try_files` for React client-side routes |
+| Registry | GitHub Container Registry (`ghcr.io/arnold-rg/stans`) |
+| CI/CD | `.github/workflows/deploy.yml` |
+| Production | Host Nginx + Certbot TLS, UFW 22/80/443, `--restart=always` |
+
+```bash
+docker build -t stans-app .
+docker run --restart=always -p 8080:80 stans-app
+```
+
+Full server, Terraform, Ansible, Kubernetes, Prometheus/Grafana, and logging steps are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## License
 
 This project is developed as part of the Data Structures and Algorithms course at Bahria University.
