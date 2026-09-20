@@ -311,39 +311,6 @@
     background-image: linear-gradient(180deg, hsl(var(--card)), hsl(var(--background) / 0.4));
   }
 
-  .status-wall {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    background: hsl(var(--card));
-  }
-
-  .heat-track {
-    height: 0.5rem;
-    width: 100%;
-    border: 1px solid hsl(var(--border));
-    background: hsl(var(--muted));
-  }
-
-  .heat-fill {
-    height: 100%;
-  }
-
-  .heat-clear {
-    background: hsl(var(--traffic-clear));
-  }
-
-  .heat-warm {
-    background: hsl(var(--traffic-moderate));
-  }
-
-  .heat-hot {
-    background: hsl(var(--traffic-heavy));
-  }
-
-  .sitrep-sheet {
-    background: hsl(var(--muted) / 0.35);
-    border: 1px solid hsl(var(--border));
-  }
-
   .city-grid {
     background-image:
       linear-gradient(hsl(var(--border) / 0.45) 1px, transparent 1px),
@@ -390,4 +357,40 @@
     box-shadow: 0 0 0 2px hsl(var(--primary) / 0.55) !important;
     border-radius: 2px;
   }
+}
+
+.leaflet-container {
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  background: #16140f;
+  height: 100%;
+  width: 100%;
+}
+
+.leaflet-control-zoom a,
+.leaflet-control-layers {
+  border-radius: 2px !important;
+  border: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.leaflet-control-layers-toggle {
+  background-color: hsl(var(--card));
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-radius: 2px;
+  box-shadow: none;
+  border: 1px solid hsl(var(--border));
+}
+
+.leaflet-bar a:hover {
+  background: hsl(var(--muted)) !important;
+}
+
+.leaflet-attribution-flag {
+  display: none !important;
 }

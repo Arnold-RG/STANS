@@ -348,27 +348,22 @@ export default function Documentation() {
         {/* Instructor Notice */}
         <Card className="mb-8 border-primary/50 bg-primary/5">
           <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-start">
-              <Badge variant="default" className="shrink-0">For Evaluation</Badge>
-              <p className="text-sm text-muted-foreground">
-                <strong>Instructor's Note:</strong> This section provides a complete breakdown of DSA concepts implemented in STANS. 
-                Cross-reference these implementations with the interactive visualizations on the main page - run Kruskal's, 
-                Dijkstra's, or Prim's algorithm to see these concepts in action.
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Routing on the desk is OSRM (live OSM). Dijkstra / Kruskal / Prim run on a graph
+              pulled from Overpass for the current map view — highway geometry and maxspeed, not a toy city.
+              Notes below are the local algorithm code.
+            </p>
           </CardContent>
         </Card>
 
-        {/* Title & Introduction */}
         <div className="mb-12">
           <h1 className="text-3xl sm:text-4xl font-bold mb-4 flex items-center gap-3">
             <Code className="h-8 w-8 text-primary" />
-            STANS: Technical Implementation & DSA Concepts
+            Notes
           </h1>
           <p className="text-lg text-muted-foreground max-w-3xl">
-            This section provides a detailed breakdown of the key Data Structures and Algorithms concepts 
-            implemented in this project, along with code walkthroughs. It is designed to facilitate direct 
-            project evaluation without external dependencies.
+            How the graph bits work once OSM ways are in memory. Public desk:
+            <a className="text-primary" href="https://arnold-rg.github.io/STANS/">arnold-rg.github.io/STANS</a>
           </p>
         </div>
 

@@ -1,5 +1,5 @@
 import type { Edge } from "./kruskal";
-import type { GraphNode } from "@/data/karachiNetwork";
+import type { GraphNode } from "@/types/graph";
 
 export type Solver = "dijkstra" | "astar";
 

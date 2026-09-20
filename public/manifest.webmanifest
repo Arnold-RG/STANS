@@ -1,23 +1,24 @@
 {
-  "name": "STANS — Traffic operations desk",
+  "name": "STANS — live traffic desk",
   "short_name": "STANS",
-  "description": "Municipal traffic-operations desk. Empty board on start. Live routing, shift profiles, Dijkstra and MST.",
-  "start_url": "/",
+  "description": "OpenStreetMap desk: live search, GPS, OSRM routes, weather, OSM graph extract.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#16140f",
   "theme_color": "#16140f",
   "lang": "en",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     }
   ]

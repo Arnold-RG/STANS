@@ -55,14 +55,7 @@ export const useTrafficSimulation = ({
         const edgeId = getEdgeId(edge);
         const currentMultiplier = newMultipliers[edgeId] || 1;
         
-        // Random traffic fluctuation
-        const change = (Math.random() - 0.5) * 0.3;
-        let newMultiplier = currentMultiplier + change;
-        
-        // Clamp between 0.8 and 2.5
-        newMultiplier = Math.max(0.8, Math.min(2.5, newMultiplier));
-        
-        newMultipliers[edgeId] = newMultiplier;
+        newMultipliers[edgeId] = currentMultiplier || 1;
       });
       
       return newMultipliers;
