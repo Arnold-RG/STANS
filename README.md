@@ -91,9 +91,9 @@ Asphalt `#16140f`, cream `#e6dcc8`, sodium amber `#d4a017`. Logo files are under
 
 Map data © OpenStreetMap contributors. Routes: OSRM. Weather: Open-Meteo.
 
-## Fork status
+## Repository status
 
-This repository remains a GitHub **fork** of `weedu230/STANS` (remote `upstream`). Detaching it into a standalone non-fork would require GitHub Support (or a risky history rewrite / delete-and-recreate). We leave the fork link intact and push all product updates to `origin` (`Arnold-RG/STANS`) only.
+`Arnold-RG/STANS` is a **standalone** GitHub repository (not a fork). A local `upstream` remote may still point at `weedu230/STANS` for historical reference only — product updates push to `origin`.
 
 ## Author
 
