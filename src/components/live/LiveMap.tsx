@@ -194,8 +194,12 @@ const LiveMap = ({
       )}
       {primary ? (
         <>
-          <Polyline positions={primary.geometry} pathOptions={{ color: "#0c1118", weight: 10, opacity: 0.55 }} />
-          <Polyline positions={primary.geometry} pathOptions={{ color: "#3dd6e8", weight: 4.5, opacity: 0.96 }} />
+          <Polyline positions={primary.geometry} pathOptions={{ color: "#16140f", weight: 10, opacity: 0.6 }} />
+          <Polyline
+            className="route-live-pulse"
+            positions={primary.geometry}
+            pathOptions={{ color: "#d4a017", weight: 4.5, opacity: 0.96 }}
+          />
         </>
       ) : null}
 
@@ -210,7 +214,11 @@ const LiveMap = ({
         ) : null,
       )}
       {graphLine.length > 1 ? (
-        <Polyline positions={graphLine} pathOptions={{ color: "#f0a030", weight: 4, opacity: 0.92 }} />
+        <Polyline
+          className="route-live-pulse"
+          positions={graphLine}
+          pathOptions={{ color: "#d4a017", weight: 4, opacity: 0.94 }}
+        />
       ) : null}
 
       {nearby.map((item) => (

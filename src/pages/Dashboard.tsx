@@ -484,27 +484,30 @@ const Dashboard = () => {
       section="desk"
       flush
       ticker={
-        <ul className="desk-ticker flex min-w-max items-stretch overflow-x-auto" aria-label="Desk status">
-          {chips.map(([label, value], index) => (
-            <li
-              key={label}
-              className={`desk-chip desk-status-shimmer mx-1 my-1.5 flex items-center gap-3 ${
-                label === "Feed" && feed === "Live" ? "desk-chip-live" : ""
-              } ${index ? "" : "ml-3"}`}
-            >
-              {label === "Feed" ? (
-                <span
-                  className={`desk-lamp ${feed === "Live" ? "is-live" : feed === "Error" ? "is-warn" : ""}`}
-                  aria-hidden
-                />
-              ) : null}
-              <span className="eyebrow">{label}</span>
-              <span title={value} className="max-w-[14rem] truncate text-sm text-foreground">
-                {value}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="desk-ticker" aria-label="Desk status">
+          <ul className="desk-ticker-track flex min-w-max items-stretch">
+            {[...chips, ...chips].map(([label, value], index) => (
+              <li
+                key={`${label}-${index}`}
+                className={`desk-chip desk-status-shimmer mx-1 my-1.5 flex items-center gap-3 ${
+                  label === "Feed" && feed === "Live" ? "desk-chip-live" : ""
+                } ${index ? "" : "ml-3"}`}
+                aria-hidden={index >= chips.length ? true : undefined}
+              >
+                {label === "Feed" ? (
+                  <span
+                    className={`desk-lamp ${feed === "Live" ? "is-live" : feed === "Error" ? "is-warn" : ""}`}
+                    aria-hidden
+                  />
+                ) : null}
+                <span className="eyebrow">{label}</span>
+                <span title={value} className="max-w-[14rem] truncate text-sm text-foreground">
+                  {value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       }
     >
       <p className="sr-only" aria-live="polite">
@@ -537,7 +540,7 @@ const Dashboard = () => {
                     onClick={() => setTab(item.id)}
                     className={`h-12 text-xs sm:text-sm ${
                       tab === item.id
-                        ? "text-foreground shadow-[inset_0_-2px_0_hsl(var(--cyan))]"
+                        ? "text-foreground shadow-[inset_0_-2px_0_hsl(var(--amber))]"
                         : "text-muted-foreground"
                     }`}
                   >
@@ -663,7 +666,7 @@ const Dashboard = () => {
                 onClick={() => openTab(item.id)}
                 className={`h-12 text-xs ${
                   sheetOpen && tab === item.id
-                    ? "text-foreground shadow-[inset_0_-2px_0_hsl(var(--cyan))]"
+                    ? "text-foreground shadow-[inset_0_-2px_0_hsl(var(--amber))]"
                     : "text-muted-foreground"
                 }`}
               >

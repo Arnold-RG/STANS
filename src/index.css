@@ -604,8 +604,8 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: linear-gradient(180deg, hsl(var(--cyan)), hsl(var(--amber) / 0.35));
-  opacity: 0.85;
+  background: linear-gradient(180deg, hsl(var(--amber)), hsl(var(--cream) / 0.35));
+  opacity: 0.9;
 }
 
 .desk-title {
@@ -650,15 +650,15 @@
 }
 
 .desk-btn:hover {
-  border-color: hsl(var(--cyan) / 0.65);
-  box-shadow: 0 0 0 1px hsl(var(--cyan) / 0.12);
+  border-color: hsl(var(--amber) / 0.65);
+  box-shadow: 0 0 0 1px hsl(var(--amber) / 0.12);
 }
 
 .desk-btn[aria-pressed="true"] {
-  border-color: hsl(var(--cyan));
-  background: hsl(var(--cyan) / 0.12);
+  border-color: hsl(var(--amber));
+  background: hsl(var(--amber) / 0.14);
   color: hsl(var(--primary));
-  box-shadow: inset 0 0 0 1px hsl(var(--cyan) / 0.2);
+  box-shadow: inset 0 0 0 1px hsl(var(--amber) / 0.25);
 }
 
 .desk-btn:disabled {
@@ -668,8 +668,8 @@
 
 .desk-btn-solid {
   width: 100%;
-  border-color: hsl(var(--cyan));
-  background: hsl(var(--cyan));
+  border-color: hsl(var(--amber));
+  background: hsl(var(--amber));
   color: hsl(var(--primary-foreground));
 }
 
@@ -733,8 +733,8 @@
 }
 
 .desk-route-card[aria-pressed="true"] {
-  border-color: hsl(var(--cyan));
-  background: hsl(var(--cyan) / 0.1);
+  border-color: hsl(var(--amber));
+  background: hsl(var(--amber) / 0.12);
 }
 
 .skip-link {
@@ -756,7 +756,7 @@
 
 .desk-nav-on {
   color: hsl(var(--foreground));
-  box-shadow: inset 0 -2px 0 hsl(var(--cyan));
+  box-shadow: inset 0 -2px 0 hsl(var(--amber));
 }
 
 .desk-lamp {
@@ -769,8 +769,8 @@
 }
 
 .desk-lamp.is-live {
-  background: hsl(var(--cyan));
-  box-shadow: 0 0 0 3px hsl(var(--cyan) / 0.18);
+  background: hsl(var(--amber));
+  box-shadow: 0 0 0 3px hsl(var(--amber) / 0.22);
 }
 
 .desk-lamp.is-warn {
@@ -794,7 +794,7 @@
   }
 
   .desk-lamp.is-live {
-    animation: lamp-live 2.6s ease-in-out infinite;
+    animation: lamp-live 2.6s ease-in-out infinite, sodium-glow 2.4s ease-out infinite;
   }
 
   .desk-chip-live {
@@ -809,11 +809,19 @@
     background-image: linear-gradient(
       110deg,
       transparent 0%,
-      hsl(var(--cyan) / 0.08) 45%,
+      hsl(var(--amber) / 0.12) 45%,
       transparent 70%
     );
     background-size: 200% 100%;
     animation: status-shimmer 4.5s linear infinite;
+  }
+
+  .desk-ticker-track {
+    animation: ticker-drift 42s linear infinite;
+  }
+
+  .leaflet-interactive.route-live-pulse {
+    animation: route-pulse 1.6s ease-in-out infinite;
   }
 }
 
@@ -871,8 +879,8 @@
 @media (min-width: 1600px) {
   .asphalt-desk {
     background-image:
-      radial-gradient(1100px 520px at 4% -12%, hsl(var(--cyan) / 0.12), transparent 58%),
-      radial-gradient(900px 600px at 110% 110%, hsl(var(--amber) / 0.08), transparent 50%),
-      linear-gradient(180deg, hsl(214 30% 5% / 0.4), transparent 30%);
+      radial-gradient(1100px 520px at 4% -12%, hsl(var(--amber) / 0.16), transparent 58%),
+      radial-gradient(900px 600px at 110% 110%, hsl(var(--cream) / 0.1), transparent 50%),
+      linear-gradient(180deg, hsl(40 19% 4% / 0.45), transparent 30%);
   }
 }
