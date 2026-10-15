@@ -1,0 +1,90 @@
+import { useEffect, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+export type DeskSection = "desk" | "notes" | "concepts";
+
+const NAV: { id: DeskSection; label: string; to: string }[] = [
+  { id: "desk", label: "Desk", to: "/" },
+  { id: "notes", label: "Notes", to: "/docs" },
+  { id: "concepts", label: "Concepts", to: "/concepts" },
+];
+
+const formatClock = (date: Date) =>
+  date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+
+const formatDate = (date: Date) =>
+  date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+
+interface DeskChromeProps {
+  section: DeskSection;
+  ticker?: ReactNode;
+  flush?: boolean;
+  children: ReactNode;
+}
+
+export function DeskChrome({ section, ticker, flush, children }: DeskChromeProps) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  return (
+    <div className={flush ? "asphalt-desk flex h-[100dvh] flex-col overflow-hidden" : "asphalt-desk min-h-[100dvh]"}>
+      <a className="skip-link" href={section === "desk" ? "#desk-map" : "#page-main"}>
+        {section === "desk" ? "Skip to map" : "Skip to content"}
+      </a>
+      <header className="desk-header sticky top-0 z-50">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+          <Link to="/" className="flex min-w-0 items-center gap-3" aria-label="STANS, live traffic desk">
+            <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="" className="h-11 w-11 shrink-0" />
+            <span className="min-w-0">
+              <span className="desk-brand block">STANS</span>
+              <span className="eyebrow mt-1.5 hidden sm:block">Live traffic desk · OSM ops</span>
+            </span>
+          </Link>
+          <nav
+            aria-label="Sections"
+            className="order-3 flex w-full items-center justify-between border-t border-border/70 pt-1 sm:order-none sm:ml-2 sm:w-auto sm:justify-start sm:border-0 sm:pt-0"
+          >
+            {NAV.map((item) => {
+              const on = item.id === section;
+              return (
+                <Link
+                  key={item.id}
+                  to={item.to}
+                  aria-current={on ? "page" : undefined}
+                  className={`tap-target inline-flex flex-1 items-center justify-center px-2 text-[0.95rem] sm:flex-none sm:justify-start sm:px-3 ${
+                    on ? "desk-nav-on" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="ml-auto flex items-center gap-3">
+            <div className="hidden text-right lg:block">
+              <time dateTime={now.toISOString()} className="block font-mono text-sm tabular-nums leading-none text-primary">
+                {formatClock(now)}
+              </time>
+              <span className="eyebrow mt-1 block">
+                {formatDate(now)} · {zone}
+              </span>
+            </div>
+            <time dateTime={now.toISOString()} className="hidden font-mono text-xs tabular-nums text-muted-foreground sm:inline lg:hidden">
+              {formatClock(now).slice(0, 5)}
+            </time>
+            <ThemeToggle />
+          </div>
+        </div>
+        {ticker ? <div className="hidden border-t border-border/80 md:block">{ticker}</div> : null}
+      </header>
+      <div className={flush ? "flex min-h-0 flex-1 flex-col" : undefined}>{children}</div>
+    </div>
+  );
+}

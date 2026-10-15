@@ -1,0 +1,25 @@
+{
+  "name": "STANS — live traffic desk",
+  "short_name": "STANS",
+  "description": "OpenStreetMap desk: live search, GPS, OSRM routes, weather, OSM graph extract.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#16140f",
+  "theme_color": "#16140f",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="STANS">
+  <rect width="512" height="512" fill="#16140f"/>
+  <g fill="none" stroke="#d4a017" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="256" cy="198" r="42" stroke-width="14"/>
+    <line x1="256" y1="86" x2="256" y2="156" stroke-width="22"/>
+    <line x1="118" y1="198" x2="214" y2="198" stroke-width="8"/>
+    <line x1="298" y1="198" x2="394" y2="198" stroke-width="8"/>
+    <line x1="118" y1="198" x2="132" y2="186" stroke-width="8"/>
+    <line x1="394" y1="198" x2="380" y2="186" stroke-width="8"/>
+    <line x1="256" y1="240" x2="176" y2="348" stroke-width="22"/>
+    <line x1="256" y1="240" x2="336" y2="348" stroke-width="22"/>
+  </g>
+  <text x="256" y="430" text-anchor="middle" fill="#e6dcc8" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="54" font-weight="500" letter-spacing="10">STANS</text>
+</svg>
