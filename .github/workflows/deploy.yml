@@ -151,12 +151,18 @@ jobs:
             echo "SSH_HOST is not set. Skipping remote deploy. Configure GitHub Secrets to enable it."
           fi
 
+      # metadata-action tags sha- plus the first 7 characters of the commit.
+      # Computed here so the server shell does not have to be bash.
+      - name: Image tag
+        id: tag
+        run: echo "value=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
       - name: Deploy container to server
         if: steps.gate.outputs.enabled == 'true'
         uses: appleboy/ssh-action@v1.2.2
         env:
           IMAGE: ghcr.io/${{ github.repository }}
-          SHA: ${{ github.sha }}
+          TAG: ${{ steps.tag.outputs.value }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           ACTOR: ${{ github.actor }}
         with:
@@ -164,18 +170,33 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ env.SSH_PORT || '22' }}
-          envs: IMAGE,SHA,GHCR_TOKEN,ACTOR
+          envs: IMAGE,TAG,GHCR_TOKEN,ACTOR
           script: |
-            set -euo pipefail
+            set -eu
             IMAGE_REF="$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')"
             if [ -n "${GHCR_TOKEN:-}" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
             fi
-            TAG="sha-${SHA:0:7}"
-            docker pull "${IMAGE_REF}:${TAG}"
-            docker stop stans-app || true
-            docker rm stans-app || true
-            docker run -d \
+            PREV=""
+            if docker inspect stans-app >/dev/null 2>&1; then
+              PREV="$(docker inspect -f '{{.Config.Image}}' stans-app)"
+              docker stop stans-app
+              docker rename stans-app stans-app-prev
+            fi
+            restore() {
+              docker stop stans-app >/dev/null 2>&1 || true
+              docker rm stans-app >/dev/null 2>&1 || true
+              if [ -n "$PREV" ]; then
+                docker rename stans-app-prev stans-app
+                docker start stans-app
+                echo "Restored ${PREV}"
+              fi
+            }
+            if ! docker pull "${IMAGE_REF}:${TAG}"; then
+              restore
+              exit 1
+            fi
+            if ! docker run -d \
               --name stans-app \
               --restart=always \
               --health-cmd="wget -q --spider http://127.0.0.1:8080/health || exit 1" \
@@ -183,6 +204,30 @@ jobs:
               --health-timeout=5s \
               --health-retries=3 \
               -p 127.0.0.1:8080:8080 \
-              "${IMAGE_REF}:${TAG}"
+              "${IMAGE_REF}:${TAG}"; then
+              restore
+              exit 1
+            fi
+            healthy=0
+            i=0
+            while [ "$i" -lt 18 ]; do
+              status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' stans-app 2>/dev/null || echo missing)"
+              if [ "$status" = "healthy" ]; then
+                healthy=1
+                break
+              fi
+              if [ "$status" = "unhealthy" ]; then
+                break
+              fi
+              i=$((i + 1))
+              sleep 5
+            done
+            if [ "$healthy" -ne 1 ]; then
+              echo "New container failed its health check."
+              docker logs stans-app || true
+              restore
+              exit 1
+            fi
+            docker rm -f stans-app-prev >/dev/null 2>&1 || true
             docker image prune -f
             echo "Deployed ${IMAGE_REF}:${TAG}"
