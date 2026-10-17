@@ -93,8 +93,8 @@ Map data © OpenStreetMap contributors. Routes: OSRM. Weather: Open-Meteo.
 
 ## Repository status
 
-`Arnold-RG/STANS` is a **standalone** GitHub repository (not a fork). A local `upstream` remote may still point at `weedu230/STANS` for historical reference only — product updates push to `origin`.
+`Arnold-RG/STANS` is a **standalone** GitHub repository (not a fork).
 
 ## Author
 
-**Arnold Rurangwa** · ARNOVA Group
+**Arnold Rurangwa**

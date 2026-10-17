@@ -3,7 +3,7 @@ import { Users, GraduationCap, Target, Code } from "lucide-react";
 
 const ProjectInfo = () => {
   const teamMembers = [
-    { name: "Arnold Rurangwa", role: "Computer Engineer", id: "ARNOVA Group" },
+    { name: "Arnold Rurangwa", role: "Computer Engineer" },
   ];
 
   return (
@@ -56,7 +56,7 @@ const ProjectInfo = () => {
             </div>
             <CardTitle className="font-display">Author</CardTitle>
           </div>
-          <CardDescription>ARNOVA Group · live traffic desk</CardDescription>
+          <CardDescription>Live traffic desk</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -71,9 +71,6 @@ const ProjectInfo = () => {
                 <div className="flex-1">
                   <h4 className="font-semibold text-foreground">{member.name}</h4>
                   <p className="text-sm text-muted-foreground">{member.role}</p>
-                  <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                    {member.id}
-                  </span>
                 </div>
               </div>
             ))}
@@ -96,7 +93,6 @@ const ProjectInfo = () => {
             <ul className="space-y-2 text-foreground">
               <li><strong>Product:</strong> STANS live traffic desk</li>
               <li><strong>Focus:</strong> Routing, maps, and operations</li>
-              <li><strong>Organization:</strong> ARNOVA Group</li>
             </ul>
           </div>
           <div>
