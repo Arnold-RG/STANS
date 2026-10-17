@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -177,6 +177,12 @@ jobs:
             if [ -n "${GHCR_TOKEN:-}" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
             fi
+            docker pull "${IMAGE_REF}:${TAG}"
+            if ! docker inspect stans-app >/dev/null 2>&1 && docker inspect stans-app-prev >/dev/null 2>&1; then
+              docker rename stans-app-prev stans-app
+              docker start stans-app
+            fi
+            docker rm -f stans-app-prev >/dev/null 2>&1 || true
             PREV=""
             if docker inspect stans-app >/dev/null 2>&1; then
               PREV="$(docker inspect -f '{{.Config.Image}}' stans-app)"
@@ -192,16 +198,13 @@ jobs:
                 echo "Restored ${PREV}"
               fi
             }
-            if ! docker pull "${IMAGE_REF}:${TAG}"; then
-              restore
-              exit 1
-            fi
             if ! docker run -d \
               --name stans-app \
               --restart=always \
               --health-cmd="wget -q --spider http://127.0.0.1:8080/health || exit 1" \
               --health-interval=30s \
               --health-timeout=5s \
+              --health-start-period=10s \
               --health-retries=3 \
               -p 127.0.0.1:8080:8080 \
               "${IMAGE_REF}:${TAG}"; then
