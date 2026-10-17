@@ -1,4 +1,5 @@
 import type { LonLat } from "./geo";
+import { withTimeout } from "./pace";
 
 export interface WeatherNow {
   temperatureC: number;
@@ -53,10 +54,13 @@ export async function fetchWeather(point: LonLat): Promise<WeatherNow> {
   );
   url.searchParams.set("timezone", "auto");
   url.searchParams.set("wind_speed_unit", "kmh");
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { signal: withTimeout(undefined, 20000) });
   if (!res.ok) throw new Error(`Weather failed (${res.status})`);
   const data = await res.json();
   const cur = data.current;
+  if (!cur || cur.temperature_2m == null || cur.weather_code == null) {
+    throw new Error("Weather returned no current conditions");
+  }
   const code = Number(cur.weather_code);
   return {
     temperatureC: Number(cur.temperature_2m),

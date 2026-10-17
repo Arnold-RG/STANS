@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DeskChrome } from "@/components/live/DeskChrome";
@@ -16,11 +17,14 @@ import LiveMap from "@/components/live/LiveMap";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useMinWidth } from "@/hooks/useMediaQuery";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { coordPair, formatDuration, formatKm, parseCoordPair, type LonLat } from "@/lib/live/geo";
+import { formatDuration, formatKm, type LonLat } from "@/lib/live/geo";
 import { climbFromSamples, fetchElevation, fetchElevations, fetchWeather, type WeatherNow } from "@/lib/live/meteo";
 import { placeFromCoord, reverseGeocode, type Place } from "@/lib/live/nominatim";
 import { extractHighways, nearbyAmenities, nearestNode, type Amenity, type MapBounds } from "@/lib/live/overpass";
 import { fetchRoutes, MODE_LABEL, type MappedRoute, type TravelMode } from "@/lib/live/osrm";
+import { isAbortError } from "@/lib/live/pace";
+import { kindsForGroups, type PoiGroupId } from "@/lib/live/poi";
+import { buildDeskSearch, deskSearchEqual, parseDeskSearch, sharedCameraHolds, type MapBase } from "@/lib/live/share";
 import {
   buildGpx,
   downloadText,
@@ -36,6 +40,9 @@ import type { GraphNode } from "@/types/graph";
 import type { Edge } from "@/utils/kruskal";
 
 function friendlyApiError(error: unknown, service: string): string {
+  if (error instanceof Error && error.name === "TimeoutError") {
+    return `${service} took too long to answer. Try again in a moment.`;
+  }
   const message = error instanceof Error ? error.message : `${service} failed`;
   const status = /\((\d+)\)/.exec(message)?.[1];
   if (status === "429" || status === "503") {
@@ -49,48 +56,79 @@ function friendlyApiError(error: unknown, service: string): string {
 
 const Dashboard = () => {
   const [params, setParams] = useSearchParams();
+  const { resolvedTheme } = useTheme();
   const { fix, error: gpsError, busy: gpsBusy, locate } = useGeolocation();
   const tabletUp = useMinWidth(768);
   const wide = useMinWidth(1280);
+  const openedAt = useRef(parseDeskSearch(params));
   const [origin, setOrigin] = useState<Place | null>(null);
   const [dest, setDest] = useState<Place | null>(null);
   const [via, setVia] = useState<Place | null>(null);
-  const [mode, setMode] = useState<TravelMode>("driving");
+  const [mode, setMode] = useState<TravelMode>(openedAt.current.mode);
   const [routes, setRoutes] = useState<MappedRoute[]>([]);
-  const [activeRoute, setActiveRoute] = useState(0);
+  const [activeRoute, setActiveRoute] = useState(openedAt.current.alt);
   const [weather, setWeather] = useState<WeatherNow | null>(null);
+  const [weatherState, setWeatherState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [elevationM, setElevationM] = useState<number | null>(null);
   const [climb, setClimb] = useState<{ gain: number; loss: number; min: number; max: number } | null>(null);
   const [nearby, setNearby] = useState<Amenity[]>([]);
+  const [poiState, setPoiState] = useState<"idle" | "loading" | "ready" | "empty" | "error">("idle");
+  const [poiOn, setPoiOn] = useState<Partial<Record<PoiGroupId, boolean>>>({
+    medical: true,
+    police: true,
+    fire: true,
+    fuel: true,
+  });
   const [recent, setRecent] = useState<Place[]>(() => readRecentPlaces());
   const [saved, setSaved] = useState<SavedLiveTrip[]>(() => readSavedTrips());
   const [pick, setPick] = useState<PickTarget>("from");
-  const [busy, setBusy] = useState<string | null>(null);
+  const [routeBusy, setRouteBusy] = useState<string | null>(null);
+  const [poiBusy, setPoiBusy] = useState<string | null>(null);
+  const [placeBusy, setPlaceBusy] = useState<string | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [poiError, setPoiError] = useState<string | null>(null);
+  const [routeNonce, setRouteNonce] = useState(0);
+  const [weatherNonce, setWeatherNonce] = useState(0);
   const [tab, setTab] = useState<DeskTab>("search");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [canShare, setCanShare] = useState(false);
+  const [urlReady, setUrlReady] = useState(false);
+  const [holdView, setHoldView] = useState(() => sharedCameraHolds(openedAt.current));
+  const [base, setBase] = useState<MapBase>(openedAt.current.base ?? "night");
+  const [baseLocked, setBaseLocked] = useState(openedAt.current.base != null);
+  const [view, setView] = useState<{ center: LonLat; zoom: number } | null>(() => {
+    const link = openedAt.current;
+    if (!link.center && link.zoom == null) return null;
+    return { center: link.center ?? { lon: 12, lat: 20 }, zoom: link.zoom ?? 3 };
+  });
   const [graph, setGraph] = useState<{ nodes: GraphNode[]; edges: Edge[] }>({ nodes: [], edges: [] });
   const [graphPath, setGraphPath] = useState<GraphNode[]>([]);
   const [mstNote, setMstNote] = useState("");
   const boundsRef = useRef<MapBounds | null>(null);
-  const bootstrapped = useRef(false);
-  const urlReady = useRef(false);
   const allowAutoGps = useRef(true);
+  const gpsNamed = useRef(false);
+  const altBoot = useRef<number | null>(openedAt.current.alt > 0 ? openedAt.current.alt : null);
+  const mapBoot = useRef({
+    center: [openedAt.current.center?.lat ?? 20, openedAt.current.center?.lon ?? 12] as [number, number],
+    zoom: openedAt.current.zoom ?? 3,
+  });
+  const viewTimer = useRef<number | null>(null);
 
   const onBounds = useCallback((bounds: MapBounds) => {
     boundsRef.current = bounds;
   }, []);
 
-  const assign = useCallback((target: PickTarget, place: Place) => {
+  const assign = useCallback((target: PickTarget, place: Place, options?: { remember?: boolean }) => {
     if (target === "from") {
       setOrigin(place);
       setPick("to");
     } else if (target === "to") setDest(place);
     else setVia(place);
-    setRecent(pushRecentPlace(place));
+    if (options?.remember !== false) {
+      setRecent(pushRecentPlace(place));
+      setHoldView(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -98,38 +136,62 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (bootstrapped.current) return;
-    bootstrapped.current = true;
-    const from = parseCoordPair(params.get("from"));
-    const to = parseCoordPair(params.get("to"));
-    const waypoint = parseCoordPair(params.get("via"));
-    const nextMode = params.get("mode");
-    if (nextMode === "driving" || nextMode === "cycling" || nextMode === "walking") {
-      setMode(nextMode);
-    }
+    const initial = openedAt.current;
+    const ac = new AbortController();
+    const namePoint = async (point: LonLat, fallback: string) => {
+      try {
+        return await reverseGeocode(point, ac.signal);
+      } catch (error) {
+        if (isAbortError(error)) throw error;
+        return placeFromCoord(point, fallback);
+      }
+    };
     const load = async () => {
       try {
-        if (from) assign("from", await reverseGeocode(from).catch(() => placeFromCoord(from, "From")));
-        if (to) assign("to", await reverseGeocode(to).catch(() => placeFromCoord(to, "To")));
-        if (waypoint) assign("via", await reverseGeocode(waypoint).catch(() => placeFromCoord(waypoint, "Via")));
-      } catch {
-        /* keep the pins even if the name lookup is slow */
+        if (initial.from) {
+          const place = await namePoint(initial.from, "From");
+          if (!ac.signal.aborted) assign("from", place, { remember: false });
+        }
+        if (initial.to) {
+          const place = await namePoint(initial.to, "To");
+          if (!ac.signal.aborted) assign("to", place, { remember: false });
+        }
+        if (initial.via) {
+          const place = await namePoint(initial.via, "Via");
+          if (!ac.signal.aborted) assign("via", place, { remember: false });
+        }
+      } catch (error) {
+        if (!isAbortError(error)) {
+          /* pins still stand if a name lookup fails */
+        }
       } finally {
-        urlReady.current = true;
+        if (!ac.signal.aborted) setUrlReady(true);
       }
     };
     void load();
-  }, [assign, params]);
+    return () => ac.abort();
+  }, [assign]);
 
   useEffect(() => {
-    if (!urlReady.current) return;
-    const next = new URLSearchParams();
-    if (origin) next.set("from", coordPair(origin));
-    if (dest) next.set("to", coordPair(dest));
-    if (via) next.set("via", coordPair(via));
-    next.set("mode", mode);
+    if (baseLocked) return;
+    setBase(resolvedTheme === "light" ? "osm" : "night");
+  }, [resolvedTheme, baseLocked]);
+
+  useEffect(() => {
+    if (!urlReady) return;
+    const next = buildDeskSearch({
+      from: origin,
+      to: dest,
+      via,
+      mode,
+      alt: routes.length ? activeRoute : openedAt.current.alt,
+      center: view?.center ?? null,
+      zoom: view?.zoom ?? null,
+      base: baseLocked ? base : null,
+    });
+    if (deskSearchEqual(params, next)) return;
     setParams(next, { replace: true });
-  }, [origin, dest, via, mode, setParams]);
+  }, [urlReady, origin, dest, via, mode, activeRoute, routes.length, view, base, baseLocked, params, setParams]);
 
   useEffect(() => {
     if (!origin || !dest) {
@@ -138,43 +200,57 @@ const Dashboard = () => {
       setRouteError(null);
       return;
     }
-    let cancelled = false;
-    const run = async () => {
-      setBusy("Asking OSRM for a route…");
-      setRouteError(null);
-      try {
-        const next = await fetchRoutes(origin, dest, mode, via);
-        if (cancelled) return;
-        setRoutes(next);
-        setActiveRoute(0);
-      } catch (error) {
-        if (!cancelled) {
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setRouteBusy("Asking OSRM for a route…");
+        setRouteError(null);
+        try {
+          const next = await fetchRoutes(origin, dest, mode, via, ac.signal);
+          if (ac.signal.aborted) return;
+          setRoutes(next);
+          setActiveRoute((current) => {
+            const preferred = altBoot.current;
+            altBoot.current = null;
+            const index = preferred != null ? preferred : current;
+            return index >= 0 && index < next.length ? index : 0;
+          });
+        } catch (error) {
+          if (isAbortError(error) || ac.signal.aborted) return;
           setRoutes([]);
           const msg = friendlyApiError(error, "OSRM");
           setRouteError(msg);
           toast.error(msg);
+        } finally {
+          if (!ac.signal.aborted) setRouteBusy(null);
         }
-      } finally {
-        if (!cancelled) setBusy(null);
-      }
-    };
-    void run();
+      })();
+    }, 250);
     return () => {
-      cancelled = true;
+      window.clearTimeout(timer);
+      ac.abort();
     };
-  }, [origin, dest, via, mode]);
+  }, [origin, dest, via, mode, routeNonce]);
 
   useEffect(() => {
     const point = dest ?? origin ?? fix?.point;
-    if (!point) return;
+    if (!point) {
+      setWeatherState("idle");
+      return;
+    }
     let cancelled = false;
     setWeatherError(null);
+    setWeatherState("loading");
     void fetchWeather(point)
       .then((wx) => {
-        if (!cancelled) setWeather(wx);
+        if (cancelled) return;
+        setWeather(wx);
+        setWeatherState("ready");
       })
       .catch((error) => {
-        if (!cancelled) setWeatherError(friendlyApiError(error, "Open-Meteo"));
+        if (cancelled) return;
+        setWeatherError(friendlyApiError(error, "Open-Meteo"));
+        setWeatherState("error");
       });
     void fetchElevation(point)
       .then((m) => {
@@ -184,7 +260,7 @@ const Dashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [origin, dest, fix?.point]);
+  }, [origin, dest, fix?.point, weatherNonce]);
 
   useEffect(() => {
     const route = routes[activeRoute];
@@ -202,14 +278,15 @@ const Dashboard = () => {
   }, [routes, activeRoute]);
 
   const handleMapClick = async (point: LonLat) => {
-    setBusy("Naming that point…");
+    setPlaceBusy("Naming that point…");
     try {
       const place = await reverseGeocode(point);
       assign(pick, place);
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) return;
       assign(pick, placeFromCoord(point, pick === "from" ? "From" : pick === "to" ? "To" : "Via"));
     } finally {
-      setBusy(null);
+      setPlaceBusy(null);
     }
   };
 
@@ -217,23 +294,27 @@ const Dashboard = () => {
     allowAutoGps.current = true;
     const next = fix ?? (await locate());
     if (!next) return;
-    setBusy("Naming the GPS fix…");
+    setPlaceBusy("Naming the GPS fix…");
     try {
       const place = await reverseGeocode(next.point);
       assign("from", { ...place, name: `GPS · ${place.name}` });
-    } catch {
-      assign("from", placeFromCoord(next.point, "GPS fix"));
+    } catch (error) {
+      if (!isAbortError(error)) assign("from", placeFromCoord(next.point, "GPS fix"));
     } finally {
-      setBusy(null);
+      setPlaceBusy(null);
     }
   };
 
   useEffect(() => {
-    if (!allowAutoGps.current || !fix || origin || params.get("from")) return;
-    void reverseGeocode(fix.point)
+    if (!allowAutoGps.current || gpsNamed.current || !fix || origin || openedAt.current.from) return;
+    gpsNamed.current = true;
+    const point = fix.point;
+    void reverseGeocode(point)
       .then((place) => assign("from", { ...place, name: `GPS · ${place.name}` }))
-      .catch(() => assign("from", placeFromCoord(fix.point, "GPS fix")));
-  }, [assign, fix, origin, params]);
+      .catch((error) => {
+        if (!isAbortError(error)) assign("from", placeFromCoord(point, "GPS fix"));
+      });
+  }, [assign, fix, origin]);
 
   const loadNearby = async () => {
     const point = origin ?? fix?.point;
@@ -241,18 +322,21 @@ const Dashboard = () => {
       toast.message("Set a from-point, or allow GPS, first");
       return;
     }
-    setBusy("Asking Overpass what is nearby…");
+    setPoiBusy("Asking Overpass what is nearby…");
     setPoiError(null);
+    setPoiState("loading");
     try {
       const items = await nearbyAmenities(point);
       setNearby(items);
+      setPoiState(items.length ? "ready" : "empty");
       toast.message(items.length ? `${items.length} places on the map` : "Nothing mapped nearby");
     } catch (error) {
       const msg = friendlyApiError(error, "Overpass");
+      setPoiState("error");
       setPoiError(msg);
       toast.error(msg);
     } finally {
-      setBusy(null);
+      setPoiBusy(null);
     }
   };
 
@@ -267,7 +351,7 @@ const Dashboard = () => {
       toast.message("Zoom in before extracting roads. A wide view is too much for Overpass.");
       return;
     }
-    setBusy("Reading highways in this view…");
+    setPoiBusy("Reading highways in this view…");
     setPoiError(null);
     try {
       const extracted = await extractHighways(bounds);
@@ -304,7 +388,7 @@ const Dashboard = () => {
       setPoiError(msg);
       toast.error(msg);
     } finally {
-      setBusy(null);
+      setPoiBusy(null);
     }
   };
 
@@ -312,9 +396,10 @@ const Dashboard = () => {
     if (!origin || !dest) return;
     const next: SavedLiveTrip = {
       id: String(Date.now()),
-      label: `${origin.name} → ${dest.name}`,
+      label: via ? `${origin.name} → ${via.name} → ${dest.name}` : `${origin.name} → ${dest.name}`,
       from: origin,
       to: dest,
+      via,
       mode,
       savedAt: new Date().toISOString(),
     };
@@ -352,12 +437,14 @@ const Dashboard = () => {
   };
 
   const swapEnds = () => {
+    setHoldView(false);
     setOrigin(dest);
     setDest(origin);
   };
 
   const clearTrip = () => {
     allowAutoGps.current = false;
+    setHoldView(false);
     setOrigin(null);
     setDest(null);
     setVia(null);
@@ -369,15 +456,45 @@ const Dashboard = () => {
     setMstNote("");
     setRouteError(null);
     setPoiError(null);
+    setWeather(null);
+    setWeatherError(null);
+    setWeatherState("idle");
+    setElevationM(null);
+    setPoiState("idle");
     setPick("from");
   };
+
+  const onView = useCallback((next: { center: LonLat; zoom: number }) => {
+    if (viewTimer.current) window.clearTimeout(viewTimer.current);
+    viewTimer.current = window.setTimeout(() => {
+      setView((prev) => {
+        if (
+          prev &&
+          prev.zoom === next.zoom &&
+          Math.abs(prev.center.lon - next.center.lon) < 0.00001 &&
+          Math.abs(prev.center.lat - next.center.lat) < 0.00001
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    }, 350);
+  }, []);
+
+  const visibleNearby = useMemo(() => {
+    const kinds = kindsForGroups(poiOn);
+    return nearby.filter((item) => kinds.has(item.kind));
+  }, [nearby, poiOn]);
+
+  const anchor = origin ?? fix?.point ?? null;
+  const busyText = placeBusy ?? routeBusy ?? poiBusy;
 
   const route = routes[activeRoute];
   usePageTitle(route ? `${formatDuration(route.durationS)} · STANS` : "STANS — live traffic desk");
 
   const gpsLabel = gpsBusy ? "Fixing" : fix ? `±${Math.round(fix.accuracyM)} m` : gpsError ? "Denied" : "Off";
   const weatherLabel = weather ? `${Math.round(weather.temperatureC)}° ${weather.label}` : "—";
-  const feed = busy ? "Waiting" : routeError ? "Error" : route ? "Live" : "Idle";
+  const feed = busyText ? "Waiting" : routeError ? "Error" : route ? "Live" : "Idle";
 
   const localHour = new Date().getHours();
   const clockNote =
@@ -397,9 +514,18 @@ const Dashboard = () => {
       dest={dest}
       via={via}
       assign={assign}
-      clearOrigin={() => setOrigin(null)}
-      clearDest={() => setDest(null)}
-      clearVia={() => setVia(null)}
+      clearOrigin={() => {
+        setHoldView(false);
+        setOrigin(null);
+      }}
+      clearDest={() => {
+        setHoldView(false);
+        setDest(null);
+      }}
+      clearVia={() => {
+        setHoldView(false);
+        setVia(null);
+      }}
       recent={recent}
       gpsBusy={gpsBusy}
       gpsError={gpsError}
@@ -419,17 +545,25 @@ const Dashboard = () => {
       activeRoute={activeRoute}
       setActiveRoute={setActiveRoute}
       routeError={routeError}
-      busy={busy}
+      busy={routeBusy}
+      onRetry={() => setRouteNonce((n) => n + 1)}
     />
   );
 
   const weatherPanel = (
-    <WeatherPanel weather={weather} elevationM={elevationM} climb={climb} weatherError={weatherError} />
+    <WeatherPanel
+      weather={weather}
+      elevationM={elevationM}
+      climb={climb}
+      weatherError={weatherError}
+      weatherState={weatherState}
+      onRetry={() => setWeatherNonce((n) => n + 1)}
+    />
   );
 
   const poiPanel = (
     <PoiPanel
-      nearby={nearby}
+      nearby={visibleNearby}
       onNearby={() => void loadNearby()}
       graphCount={{ nodes: graph.nodes.length, edges: graph.edges.length, hops: graphPath.length }}
       mstNote={mstNote}
@@ -445,8 +579,10 @@ const Dashboard = () => {
       }}
       saved={saved}
       onOpenSaved={(trip) => {
+        setHoldView(false);
         setOrigin(trip.from);
         setDest(trip.to);
+        setVia(trip.via ?? null);
         setMode(trip.mode);
       }}
       shareLabel={canShare ? "Share" : "Copy link"}
@@ -454,7 +590,13 @@ const Dashboard = () => {
         assign("to", { id: item.id, name: item.name, detail: item.kind, lat: item.lat, lon: item.lon })
       }
       poiError={poiError}
-      busy={busy}
+      busy={poiBusy}
+      poiState={poiState}
+      nearbyTotal={nearby.length}
+      anchor={anchor}
+      poiOn={poiOn}
+      onTogglePoi={(id) => setPoiOn((current) => ({ ...current, [id]: current[id] === false }))}
+      onRetry={() => void loadNearby()}
     />
   );
 
@@ -511,7 +653,7 @@ const Dashboard = () => {
       }
     >
       <p className="sr-only" aria-live="polite">
-        {busy ??
+        {busyText ??
           routeError ??
           (route ? `${formatDuration(route.durationS)}, ${formatKm(route.distanceM / 1000)}, ${MODE_LABEL[mode]}` : "No route yet")}
       </p>
@@ -571,17 +713,26 @@ const Dashboard = () => {
             gps={fix}
             routes={routes}
             activeRoute={activeRoute}
-            nearby={nearby}
+            nearby={visibleNearby}
             graphNodes={graph.nodes}
             graphPath={graphPath}
             onMapClick={(point) => void handleMapClick(point)}
             onBounds={onBounds}
+            base={base}
+            onBase={(next) => {
+              setBaseLocked(true);
+              setBase(next);
+            }}
+            initialCenter={mapBoot.current.center}
+            initialZoom={mapBoot.current.zoom}
+            holdView={holdView}
+            onView={onView}
           />
           <div className="pointer-events-none absolute left-3 top-3 z-[450] max-w-[min(24rem,calc(100%-5.5rem))] sm:left-5 sm:top-5">
             <div className="desk-plaque pointer-events-auto px-4 py-3">
               <p className="eyebrow">STANS · On the desk</p>
               <p className="mt-1 text-sm leading-relaxed text-foreground/90">
-                {routeError ?? busy ?? clockNote}
+                {routeError ?? busyText ?? clockNote}
               </p>
             </div>
           </div>

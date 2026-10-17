@@ -505,6 +505,46 @@
   width: 100%;
 }
 
+.leaflet-container:focus-visible {
+  outline: 2px solid hsl(var(--amber));
+  outline-offset: -3px;
+}
+
+.stans-basemap {
+  position: absolute;
+  z-index: 500;
+  top: 5.1rem;
+  right: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.stans-basemap button {
+  min-height: 2.25rem;
+  min-width: 5.5rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card) / 0.94);
+  color: hsl(var(--foreground));
+  padding: 0 0.7rem;
+  font-family: Sora, system-ui, sans-serif;
+  font-size: 0.82rem;
+  border-radius: 2px;
+}
+
+.stans-basemap button[aria-pressed="true"] {
+  border-color: hsl(var(--amber));
+  color: hsl(var(--primary));
+  background: hsl(var(--amber) / 0.16);
+}
+
+.stans-basemap button:focus-visible,
+.desk-btn:focus-visible,
+.desk-github:focus-visible {
+  outline: 2px solid hsl(var(--amber));
+  outline-offset: 2px;
+}
+
 .leaflet-control-zoom a,
 .leaflet-control-layers {
   border-radius: 2px !important;

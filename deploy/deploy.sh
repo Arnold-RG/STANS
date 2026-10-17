@@ -11,11 +11,11 @@ docker rm stans-app >/dev/null 2>&1 || true
 docker run -d \
   --name stans-app \
   --restart=always \
-  --health-cmd="wget -q --spider http://127.0.0.1/health || exit 1" \
+  --health-cmd="wget -q --spider http://127.0.0.1:8080/health || exit 1" \
   --health-interval=30s \
   --health-timeout=5s \
   --health-retries=3 \
-  -p 127.0.0.1:8080:80 \
+  -p 127.0.0.1:8080:8080 \
   "$STANS_IMAGE"
 
 docker image prune -f

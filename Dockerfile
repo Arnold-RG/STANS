@@ -31,18 +31,22 @@ COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-RUN chown -R nginx:nginx /usr/share/nginx/html \
-    && chown -R nginx:nginx /var/cache/nginx \
-    && chown -R nginx:nginx /var/log/nginx \
-    && chown -R nginx:nginx /etc/nginx/conf.d \
+# uid 10001 is above the host-user range Checkov asks for, and 8080 does not
+# need NET_BIND_SERVICE once every capability is dropped.
+RUN addgroup -g 10001 -S stans \
+    && adduser -S -D -H -u 10001 -G stans stans \
+    && chown -R stans:stans /usr/share/nginx/html \
+    && chown -R stans:stans /var/cache/nginx \
+    && chown -R stans:stans /var/log/nginx \
+    && chown -R stans:stans /etc/nginx/conf.d \
     && touch /tmp/nginx.pid \
-    && chown nginx:nginx /tmp/nginx.pid
+    && chown stans:stans /tmp/nginx.pid
 
-EXPOSE 80
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -q --spider http://127.0.0.1/health || exit 1
+    CMD wget -q --spider http://127.0.0.1:8080/health || exit 1
 
-USER nginx
+USER 10001
 
 CMD ["nginx", "-g", "daemon off;"]

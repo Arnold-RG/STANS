@@ -5,6 +5,9 @@ metadata:
   namespace: stans
   labels:
     app: stans
+  annotations:
+    checkov.io/skip1: CKV_K8S_14=Static manifest still uses latest. TODO pin sha-<short> from deploy.yml once a renderer supplies the commit.
+    checkov.io/skip2: CKV_K8S_43=Same TODO. A digest is not known until the image push, and this file is not rendered at deploy time.
 spec:
   replicas: 2
   selector:
@@ -15,17 +18,24 @@ spec:
       labels:
         app: stans
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 101
-        fsGroup: 101
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: stans
+          # TODO: use the sha-<7-char commit> tag deploy.yml already pushes
+          # (docker/metadata-action type=sha,prefix=sha-). This file is applied
+          # as-is, so it cannot know that tag until something renders it.
           image: ghcr.io/arnold-rg/stans:latest
           imagePullPolicy: Always
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

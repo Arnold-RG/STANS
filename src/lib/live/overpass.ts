@@ -1,6 +1,7 @@
 import type { Edge } from "@/utils/kruskal";
 import type { GraphNode } from "@/types/graph";
 import { haversineKm, type LonLat } from "./geo";
+import { createPacer, withTimeout } from "./pace";
 
 export interface Amenity {
   id: string;
@@ -23,6 +24,30 @@ export interface ExtractedGraph {
 }
 
 const OVERPASS = "https://overpass-api.de/api/interpreter";
+const CLIENT_NOTE = "STANS live desk https://arnold-rg.github.io/STANS/";
+
+/** Browsers cannot set User-Agent. Overpass operators identify clients by this comment. */
+const pace = createPacer(1500);
+
+export function overpassQuery(body: string): string {
+  return `/* ${CLIENT_NOTE} */\n${body.trim()}\n`;
+}
+
+type OverpassPayload = {
+  elements?: OverpassEl[];
+  remark?: string;
+};
+
+export function readOverpassPayload(data: OverpassPayload): OverpassEl[] {
+  const remark = data.remark?.trim();
+  if (remark && /error|timed out|timeout|rate|too many|runtime/i.test(remark)) {
+    throw new Error(remark);
+  }
+  if (!Array.isArray(data.elements)) {
+    throw new Error(remark || "Overpass returned an empty response");
+  }
+  return data.elements;
+}
 
 const SPEED_KMH: Record<string, number> = {
   motorway: 110,
@@ -51,20 +76,26 @@ function parseMaxspeed(raw?: string): number | null {
   return n;
 }
 
-async function overpass(query: string): Promise<{ elements: OverpassEl[] }> {
-  const res = await fetch(OVERPASS, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-    body: `data=${encodeURIComponent(query)}`,
-  });
-  if (!res.ok) {
-    throw new Error(`Overpass failed (${res.status})`);
-  }
-  const data = (await res.json()) as { elements?: OverpassEl[]; remark?: string };
-  if (!Array.isArray(data.elements)) {
-    throw new Error(data.remark || "Overpass returned an empty response");
-  }
-  return { elements: data.elements };
+async function overpass(query: string, signal?: AbortSignal): Promise<{ elements: OverpassEl[] }> {
+  const body = overpassQuery(query);
+  return pace(async () => {
+    const res = await fetch(OVERPASS, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", Accept: "application/json" },
+      body: `data=${encodeURIComponent(body)}`,
+      signal: withTimeout(signal, 35000),
+    });
+    if (!res.ok) {
+      throw new Error(`Overpass failed (${res.status})`);
+    }
+    let data: OverpassPayload;
+    try {
+      data = (await res.json()) as OverpassPayload;
+    } catch {
+      throw new Error(`Overpass failed (${res.status})`);
+    }
+    return { elements: readOverpassPayload(data) };
+  }, signal);
 }
 
 type OverpassEl = {

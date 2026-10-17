@@ -1,4 +1,5 @@
 import { formatDuration, formatKm, type LonLat } from "./geo";
+import { createPacer, withTimeout } from "./pace";
 
 export type TravelMode = "driving" | "cycling" | "walking";
 
@@ -18,6 +19,9 @@ export interface MappedRoute {
 }
 
 const OSRM = "https://router.project-osrm.org";
+
+/** Public demo server. One route calculation at a time, with a short gap. */
+const pace = createPacer(1000);
 
 type OsrmManeuver = {
   type?: string;
@@ -42,15 +46,35 @@ type OsrmResponse = {
   }>;
 };
 
-function stepText(step: OsrmStep): string {
+export function describeManeuver(step: Pick<OsrmStep, "name" | "maneuver">): string {
   const name = step.name?.trim() || "unnamed road";
   const type = step.maneuver?.type ?? "turn";
   const modifier = step.maneuver?.modifier;
   if (type === "depart") return `Leave on ${name}`;
   if (type === "arrive") return "Arrive";
-  if (type === "roundabout") return `Roundabout onto ${name}`;
+  if (type === "roundabout" || type === "rotary") return `Roundabout onto ${name}`;
+  if (type === "merge") return `Merge onto ${name}`;
+  if (type === "fork") return `${modifier ? `${modifier} ` : ""}fork onto ${name}`;
+  if (type === "new name" || type === "continue") return `Continue on ${name}`;
+  if (type === "end of road") return `At the end of the road, ${modifier ?? "turn"} onto ${name}`;
   const turn = [modifier, type].filter(Boolean).join(" ");
   return `${turn} · ${name}`;
+}
+
+/** Named roads in travel order, merging repeated steps on the same street. */
+export function corridorLabel(steps: RouteStep[]): string {
+  const runs: { name: string; distanceM: number }[] = [];
+  for (const step of steps) {
+    const name = step.name.trim();
+    if (!name || name === "unnamed road") continue;
+    const last = runs[runs.length - 1];
+    if (last?.name === name) last.distanceM += step.distanceM;
+    else runs.push({ name, distanceM: step.distanceM });
+  }
+  const kept = runs.filter((run) => run.distanceM >= 150);
+  const list = (kept.length ? kept : runs).slice(0, 4);
+  if (!list.length) return "";
+  return list.map((run) => `${run.name} (${formatKm(run.distanceM / 1000)})`).join(" → ");
 }
 
 function pack(route: NonNullable<OsrmResponse["routes"]>[number]): MappedRoute {
@@ -60,7 +84,7 @@ function pack(route: NonNullable<OsrmResponse["routes"]>[number]): MappedRoute {
   const steps = (route.legs ?? [])
     .flatMap((leg) => leg.steps ?? [])
     .map((step) => ({
-      text: stepText(step),
+      text: describeManeuver(step),
       distanceM: step.distance,
       durationS: step.duration,
       name: step.name?.trim() || "unnamed road",
@@ -79,6 +103,7 @@ export async function fetchRoutes(
   to: LonLat,
   mode: TravelMode,
   via?: LonLat | null,
+  signal?: AbortSignal,
 ): Promise<MappedRoute[]> {
   const points = [from, via, to].filter(Boolean) as LonLat[];
   const path = points.map((p) => `${p.lon},${p.lat}`).join(";");
@@ -87,9 +112,11 @@ export async function fetchRoutes(
   url.searchParams.set("geometries", "geojson");
   url.searchParams.set("alternatives", "true");
   url.searchParams.set("steps", "true");
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`Routing failed (${res.status})`);
-  const data = (await res.json()) as OsrmResponse;
+  const data = await pace(async () => {
+    const res = await fetch(url.toString(), { signal: withTimeout(signal, 25000) });
+    if (!res.ok) throw new Error(`Routing failed (${res.status})`);
+    return (await res.json()) as OsrmResponse;
+  }, signal);
   if (data.code === "NoRoute" || !data.routes?.length) {
     throw new Error(data.message || "No route between those points");
   }

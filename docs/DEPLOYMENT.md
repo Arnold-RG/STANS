@@ -7,10 +7,10 @@ This repository packages the Smart Traffic-Aware Navigation System as a producti
 ```
 Browser
   -> Host Nginx :443 (Let's Encrypt)
-  -> STANS container :80 (Alpine Nginx + React build)
+  -> STANS container :8080 (Alpine Nginx + React build)
 ```
 
-TLS terminates on the host. The container only serves HTTP on port 80 and is bound to loopback in production.
+TLS terminates on the host. The container serves HTTP on port 8080 as an unprivileged user and is bound to loopback in production.
 
 ## Part 1: Local app
 
@@ -36,7 +36,7 @@ The final image has no Node runtime and no development dependencies.
 
 ```bash
 docker build -t stans-app .
-docker run --restart=always -p 8080:80 stans-app
+docker run --restart=always -p 8080:8080 stans-app
 ```
 
 Open http://localhost:8080. Client-side routes such as `/classic` and `/docs` are rewritten to `index.html`. Health endpoint: http://localhost:8080/health
@@ -107,7 +107,7 @@ Manual equivalent:
 
 ```bash
 docker pull ghcr.io/arnold-rg/stans:latest
-docker run -d --name stans-app --restart=always -p 127.0.0.1:8080:80 ghcr.io/arnold-rg/stans:latest
+docker run -d --name stans-app --restart=always -p 127.0.0.1:8080:8080 ghcr.io/arnold-rg/stans:latest
 sudo certbot --nginx -d stans.example.com
 sudo ufw allow 22 && sudo ufw allow 80 && sudo ufw allow 443 && sudo ufw enable
 ```

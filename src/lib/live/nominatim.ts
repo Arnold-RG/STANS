@@ -1,3 +1,4 @@
+import { createPacer, withTimeout } from "./pace";
 import type { LonLat } from "./geo";
 
 export interface Place {
@@ -9,6 +10,40 @@ export interface Place {
 }
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
+
+/** Oldest entry is evicted once `limit` successful responses are stored. */
+export function createLru<T>(limit: number) {
+  const map = new Map<string, T>();
+  return {
+    get(key: string): T | undefined {
+      if (!map.has(key)) return undefined;
+      const value = map.get(key) as T;
+      map.delete(key);
+      map.set(key, value);
+      return value;
+    },
+    set(key: string, value: T) {
+      if (map.has(key)) map.delete(key);
+      map.set(key, value);
+      while (map.size > limit) {
+        const oldest = map.keys().next().value;
+        if (oldest !== undefined) map.delete(oldest);
+      }
+    },
+  };
+}
+
+/**
+ * Browsers forbid setting User-Agent. Nominatim's usage policy accepts the
+ * page Referer (index.html uses strict-origin-when-cross-origin), asks for
+ * at most one request per second, and asks apps to cache results. `pace`
+ * enforces the gap. `results` keeps a small LRU of successful JSON so a
+ * repeated search or reverse lookup does not spend another request.
+ */
+const MIN_GAP_MS = 1100;
+const RESULT_CACHE = 32;
+const pace = createPacer(MIN_GAP_MS);
+const results = createLru<unknown>(RESULT_CACHE);
 
 function headers(): HeadersInit {
   return {
@@ -38,7 +73,23 @@ function toPlace(hit: NominatimHit): Place {
   };
 }
 
-export async function searchPlaces(query: string): Promise<Place[]> {
+async function nominatimGet(url: URL, failedLabel: string, signal?: AbortSignal): Promise<unknown> {
+  const key = url.toString();
+  const cached = results.get(key);
+  if (cached !== undefined) return cached;
+  const data = await pace(async () => {
+    const res = await fetch(url.toString(), {
+      headers: headers(),
+      signal: withTimeout(signal, 20000),
+    });
+    if (!res.ok) throw new Error(`${failedLabel} (${res.status})`);
+    return res.json();
+  }, signal);
+  results.set(key, data);
+  return data;
+}
+
+export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
   const url = new URL(`${NOMINATIM}/search`);
@@ -46,20 +97,16 @@ export async function searchPlaces(query: string): Promise<Place[]> {
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("limit", "7");
-  const res = await fetch(url.toString(), { headers: headers() });
-  if (!res.ok) throw new Error(`Place search failed (${res.status})`);
-  const data = (await res.json()) as NominatimHit[];
+  const data = (await nominatimGet(url, "Place search failed", signal)) as NominatimHit[];
   return Array.isArray(data) ? data.map(toPlace) : [];
 }
 
-export async function reverseGeocode(point: LonLat): Promise<Place> {
+export async function reverseGeocode(point: LonLat, signal?: AbortSignal): Promise<Place> {
   const url = new URL(`${NOMINATIM}/reverse`);
   url.searchParams.set("lat", String(point.lat));
   url.searchParams.set("lon", String(point.lon));
   url.searchParams.set("format", "jsonv2");
-  const res = await fetch(url.toString(), { headers: headers() });
-  if (!res.ok) throw new Error(`Reverse geocode failed (${res.status})`);
-  const hit = (await res.json()) as NominatimHit & { error?: string };
+  const hit = (await nominatimGet(url, "Reverse geocode failed", signal)) as NominatimHit & { error?: string };
   if (hit.error) {
     return {
       id: coordId(point),

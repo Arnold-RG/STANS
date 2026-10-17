@@ -1,11 +1,12 @@
 import { useState } from "react";
 import PlaceSearch from "@/components/live/PlaceSearch";
 import type { GpsFix } from "@/hooks/useGeolocation";
-import { formatDuration, formatKm } from "@/lib/live/geo";
+import { formatDuration, formatKm, type LonLat } from "@/lib/live/geo";
 import type { WeatherNow } from "@/lib/live/meteo";
 import type { Place } from "@/lib/live/nominatim";
 import type { Amenity } from "@/lib/live/overpass";
-import { MODE_LABEL, type MappedRoute, type TravelMode } from "@/lib/live/osrm";
+import { corridorLabel, MODE_LABEL, type MappedRoute, type TravelMode } from "@/lib/live/osrm";
+import { amenityColor, amenityLabel, POI_GROUPS, rankAmenities, type PoiGroupId } from "@/lib/live/poi";
 import type { SavedLiveTrip } from "@/lib/live/storage";
 
 export type PickTarget = "from" | "to" | "via";
@@ -19,7 +20,7 @@ export const DESK_TABS: { id: DeskTab; label: string }[] = [
 ];
 
 const RATE_NOTE =
-  "Public Nominatim, OSRM, and Overpass are rate-limited. Pause a few seconds between repeated lookups.";
+  "Nominatim lookups are queued to about one a second. Overpass still wants a tight map before a highway extract.";
 
 interface PlanProps {
   pick: PickTarget;
@@ -164,28 +165,41 @@ interface RouteProps {
   setActiveRoute: (index: number) => void;
   routeError?: string | null;
   busy?: string | null;
+  onRetry?: () => void;
 }
 
-export function RoutePanel({ route, routes, activeRoute, setActiveRoute, routeError, busy }: RouteProps) {
+export function RoutePanel({ route, routes, activeRoute, setActiveRoute, routeError, busy, onRetry }: RouteProps) {
+  const [showAllTurns, setShowAllTurns] = useState(false);
+  const corridor = route ? corridorLabel(route.steps) : "";
+  const turns = route ? (showAllTurns ? route.steps : route.steps.slice(0, 8)) : [];
   return (
     <div className="space-y-4">
-      <section className="desk-panel desk-panel-section pl-4">
+      <section className="desk-panel desk-panel-section pl-4" aria-busy={Boolean(busy) && !route}>
         <p className="eyebrow">Route</p>
         <h2 className="desk-title mt-2">The journey</h2>
-        {routeError ? <p className="desk-error mt-3" role="alert">{routeError}</p> : null}
+        {routeError ? (
+          <div className="mt-3 space-y-2">
+            <p className="desk-error" role="alert">{routeError}</p>
+            {onRetry ? (
+              <button type="button" className="desk-btn" onClick={onRetry}>
+                Try the route again
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {busy && !route ? <p className="desk-lede mt-3 text-primary">{busy}</p> : null}
         {route ? (
           <div className="desk-rise mt-5">
             <p className="desk-figure">{formatDuration(route.durationS)}</p>
             <p className="mt-3 font-mono text-sm text-foreground">{formatKm(route.distanceM / 1000)}</p>
+            {corridor ? <p className="mt-3 text-sm leading-relaxed text-foreground/90">{corridor}</p> : null}
             <p className="desk-lede">Public OSRM. Pace from OpenStreetMap tags — not a guessed jam.</p>
           </div>
         ) : (
-          !routeError && (
-            <p className="desk-lede">Name a from and a to. The desk asks OSRM, and it will not invent a path.</p>
-          )
+          !routeError &&
+          !busy && <p className="desk-lede">Name a from and a to. The desk asks OSRM, and it will not invent a path.</p>
         )}
-        <p className="desk-rate mt-3">OSRM public demo has fair-use limits. Retry gently if routing fails.</p>
+        <p className="desk-rate mt-3">OSRM’s public demo has fair-use limits. A failed route can be tried again.</p>
       </section>
 
       <section className="desk-panel desk-panel-section pl-4">
@@ -216,9 +230,9 @@ export function RoutePanel({ route, routes, activeRoute, setActiveRoute, routeEr
       <section className="desk-panel desk-panel-section pl-4">
         <p className="eyebrow">Turns</p>
         <h2 className="desk-title mt-2">Turn sheet</h2>
-        {route?.steps.length ? (
-          <ol className="mt-4 max-h-72 space-y-0 overflow-auto">
-            {route.steps.slice(0, 40).map((step, index) => (
+        {turns.length ? (
+          <ol className="mt-4 max-h-80 space-y-0 overflow-auto">
+            {turns.map((step, index) => (
               <li key={`${step.text}-${index}`} className="flex gap-3 border-b border-border/60 py-2.5 text-sm leading-snug">
                 <span className="w-7 shrink-0 font-mono text-xs text-primary">{String(index + 1).padStart(2, "0")}</span>
                 <span>
@@ -231,28 +245,44 @@ export function RoutePanel({ route, routes, activeRoute, setActiveRoute, routeEr
         ) : (
           <p className="desk-lede">The turn sheet fills in after a live route.</p>
         )}
-        {route && route.steps.length > 40 ? (
-          <p className="eyebrow mt-3">First 40 of {route.steps.length}</p>
+        {route && route.steps.length > 8 ? (
+          <button type="button" className="desk-btn mt-3 w-full" aria-expanded={showAllTurns} onClick={() => setShowAllTurns((open) => !open)}>
+            {showAllTurns ? "Show the short list" : `Show all ${route.steps.length} turns`}
+          </button>
         ) : null}
       </section>
     </div>
   );
 }
 
+export type WeatherState = "idle" | "loading" | "ready" | "error";
+
 interface WeatherPanelProps {
   weather: WeatherNow | null;
   elevationM: number | null;
   climb: { gain: number; loss: number; min: number; max: number } | null;
   weatherError?: string | null;
+  weatherState?: WeatherState;
+  onRetry?: () => void;
 }
 
-export function WeatherPanel({ weather, elevationM, climb, weatherError }: WeatherPanelProps) {
+export function WeatherPanel({ weather, elevationM, climb, weatherError, weatherState = "idle", onRetry }: WeatherPanelProps) {
   return (
     <div className="space-y-4">
-      <section className="desk-panel desk-panel-section pl-4">
+      <section className="desk-panel desk-panel-section pl-4" aria-busy={weatherState === "loading"}>
         <p className="eyebrow">Weather</p>
         <h2 className="desk-title mt-2">Air & height</h2>
-        {weatherError ? <p className="desk-error mt-3" role="alert">{weatherError}</p> : null}
+        {weatherError ? (
+          <div className="mt-3 space-y-2">
+            <p className="desk-error" role="alert">{weatherError}</p>
+            {onRetry ? (
+              <button type="button" className="desk-btn" onClick={onRetry}>
+                Read the weather again
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {weatherState === "loading" && !weather ? <p className="desk-lede mt-3 text-primary">Reading Open-Meteo…</p> : null}
         {weather ? (
           <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
             <div>
@@ -281,7 +311,8 @@ export function WeatherPanel({ weather, elevationM, climb, weatherError }: Weath
             </div>
           </dl>
         ) : (
-          !weatherError && (
+          !weatherError &&
+          weatherState !== "loading" && (
             <p className="desk-lede">Open-Meteo at the destination if you have one, otherwise from or GPS.</p>
           )
         )}
@@ -314,6 +345,12 @@ interface PoiPanelProps {
   onAmenity: (item: Amenity) => void;
   poiError?: string | null;
   busy?: string | null;
+  poiState?: "idle" | "loading" | "ready" | "empty" | "error";
+  nearbyTotal?: number;
+  anchor?: LonLat | null;
+  poiOn: Partial<Record<PoiGroupId, boolean>>;
+  onTogglePoi: (id: PoiGroupId) => void;
+  onRetry?: () => void;
 }
 
 export function PoiPanel({
@@ -334,6 +371,12 @@ export function PoiPanel({
   onAmenity,
   poiError,
   busy,
+  poiState = "idle",
+  nearbyTotal = 0,
+  anchor = null,
+  poiOn,
+  onTogglePoi,
+  onRetry,
 }: PoiPanelProps) {
   const [armForget, setArmForget] = useState(false);
 
@@ -344,23 +387,41 @@ export function PoiPanel({
         <h2 className="desk-title mt-2">Nearby help</h2>
         <p className="desk-lede">Hospitals, police, fire, fuel — live Overpass around From or GPS.</p>
         <p className="desk-rate mt-3">Overpass can throttle heavy queries. Zoom in before extracting highways.</p>
-        {poiError ? <p className="desk-error mt-3" role="alert">{poiError}</p> : null}
+        {poiError ? (
+          <div className="mt-3 space-y-2">
+            <p className="desk-error" role="alert">{poiError}</p>
+            {onRetry ? (
+              <button type="button" className="desk-btn" onClick={onRetry}>
+                Ask Overpass again
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {busy ? <p className="mt-3 text-sm text-primary">{busy}</p> : null}
+        <div className="mt-4 grid grid-cols-2 gap-2" role="group" aria-label="Place categories">
+          {POI_GROUPS.map((group) => (
+            <button
+              key={group.id}
+              type="button"
+              aria-pressed={poiOn[group.id] !== false}
+              onClick={() => onTogglePoi(group.id)}
+              className="desk-btn justify-start gap-2"
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: amenityColor(group.kinds[0]) }} aria-hidden />
+              {group.label}
+            </button>
+          ))}
+        </div>
         <button type="button" onClick={onNearby} className="desk-btn mt-4 w-full">
           Look around this point
         </button>
-        {nearby.length ? (
-          <ul className="mt-3 max-h-44 space-y-1 overflow-auto">
-            {nearby.map((item) => (
-              <li key={item.id}>
-                <button type="button" className="w-full py-1 text-left text-sm hover:text-primary" onClick={() => onAmenity(item)}>
-                  <span className="eyebrow mr-2">{item.kind.replace(/_/g, " ")}</span>
-                  {item.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        <PoiList
+          nearby={nearby}
+          nearbyTotal={nearbyTotal}
+          poiState={poiState}
+          anchor={anchor}
+          onAmenity={onAmenity}
+        />
       </section>
 
       <section className="desk-panel desk-panel-section pl-4">
@@ -425,6 +486,52 @@ export function PoiPanel({
         )}
       </section>
     </div>
+  );
+}
+
+function PoiList({
+  nearby,
+  nearbyTotal,
+  poiState,
+  anchor,
+  onAmenity,
+}: {
+  nearby: Amenity[];
+  nearbyTotal: number;
+  poiState: "idle" | "loading" | "ready" | "empty" | "error";
+  anchor: LonLat | null;
+  onAmenity: (item: Amenity) => void;
+}) {
+  if (poiState === "loading" && !nearbyTotal) {
+    return <p className="desk-lede mt-3 text-primary">Asking Overpass what is nearby…</p>;
+  }
+  if (poiState === "idle") {
+    return <p className="desk-lede">Nothing loaded yet. Look around From, or the GPS fix if you have one.</p>;
+  }
+  if (poiState === "empty") {
+    return <p className="desk-lede">Overpass returned no hospitals, police, fire stations, or fuel in this radius.</p>;
+  }
+  if (!nearby.length && nearbyTotal > 0) {
+    return <p className="desk-lede">Nothing in the categories left on. Turn another one back on.</p>;
+  }
+  if (!nearby.length) return null;
+  const ranked = rankAmenities(nearby, anchor);
+  return (
+    <ul className="mt-3 max-h-56 space-y-1 overflow-auto">
+      {ranked.map((item) => (
+        <li key={item.id}>
+          <button type="button" className="flex w-full items-baseline justify-between gap-3 py-1 text-left text-sm hover:text-primary" onClick={() => onAmenity(item)}>
+            <span className="min-w-0">
+              <span className="eyebrow mr-2">{amenityLabel(item.kind)}</span>
+              <span className="text-foreground">{item.name}</span>
+            </span>
+            {item.distanceKm != null ? (
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">{formatKm(item.distanceKm)}</span>
+            ) : null}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
