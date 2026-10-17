@@ -20,11 +20,20 @@ interface AlgorithmComparisonProps {
   edges?: Edge[];
 }
 
+type AlgoSnapshot = {
+  steps?: number;
+  edges?: number;
+  weight?: number;
+  time?: string;
+  path?: string;
+  distance?: string;
+};
+
 const AlgorithmComparison = ({ nodes: propNodes, edges: propEdges }: AlgorithmComparisonProps) => {
   const [hasRun, setHasRun] = useState(false);
-  const [kruskalResult, setKruskalResult] = useState<any>(null);
-  const [primResult, setPrimResult] = useState<any>(null);
-  const [dijkstraResult, setDijkstraResult] = useState<any>(null);
+  const [kruskalResult, setKruskalResult] = useState<AlgoSnapshot | null>(null);
+  const [primResult, setPrimResult] = useState<AlgoSnapshot | null>(null);
+  const [dijkstraResult, setDijkstraResult] = useState<AlgoSnapshot | null>(null);
 
   // Use provided nodes/edges or fallback to sample data
   const defaultNodes: Node[] = [

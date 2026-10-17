@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { isAbortError } from "@/lib/live/pace";
 import { searchPlaces, type Place } from "@/lib/live/nominatim";
 
 interface PlaceSearchProps {
@@ -31,29 +32,36 @@ const PlaceSearch = ({ label, value, onSelect, onClear }: PlaceSearchProps) => {
       setError(null);
       return;
     }
+    const ac = new AbortController();
     const id = window.setTimeout(async () => {
       setBusy(true);
       setError(null);
       try {
-        const next = await searchPlaces(q);
+        const next = await searchPlaces(q, ac.signal);
         setHits(next);
         setActive(0);
         setOpen(next.length > 0);
         if (!next.length) setError("No places matched. Try a more specific name.");
       } catch (err) {
+        if (isAbortError(err)) return;
         setHits([]);
         setOpen(false);
         const status = err instanceof Error && /\((\d+)\)/.exec(err.message)?.[1];
         if (status === "429" || status === "503") {
           setError("Nominatim is busy or rate-limiting. Wait a few seconds, then search again.");
+        } else if (err instanceof Error && err.name === "TimeoutError") {
+          setError("Nominatim took too long. Wait a second, then search again.");
         } else {
           setError(err instanceof Error ? err.message : "Place search failed. Try again shortly.");
         }
       } finally {
-        setBusy(false);
+        if (!ac.signal.aborted) setBusy(false);
       }
     }, 420);
-    return () => window.clearTimeout(id);
+    return () => {
+      window.clearTimeout(id);
+      ac.abort();
+    };
   }, [query, value]);
 
   useEffect(() => {

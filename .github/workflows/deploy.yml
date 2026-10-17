@@ -98,6 +98,9 @@ jobs:
             type=sha,prefix=
             type=sha,prefix=sha-
 
+      # ghcr.io/arnold-rg/stans already exists and is not linked to this
+      # repository, so GITHUB_TOKEN push fails with write_package denied.
+      # Link the package to Arnold-RG/STANS in package settings. Do not rename it here.
       - name: Build and push
         id: push
         uses: docker/build-push-action@v6

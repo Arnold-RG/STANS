@@ -7,6 +7,7 @@ export interface SavedLiveTrip {
   label: string;
   from: Place;
   to: Place;
+  via?: Place | null;
   mode: TravelMode;
   savedAt: string;
 }

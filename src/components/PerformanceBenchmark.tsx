@@ -37,7 +37,7 @@ const PerformanceBenchmark = () => {
       nodes.push(`N${i}`);
     }
 
-    const edges: any[] = [];
+    const edges: { from: string; to: string; weight: number; traffic: "low" | "medium" | "high"; isBlocked: boolean }[] = [];
     const edgeCount = Math.min(nodeCount * (nodeCount - 1) / 2, nodeCount * 3);
     
     for (let i = 0; i < edgeCount; i++) {
@@ -51,7 +51,7 @@ const PerformanceBenchmark = () => {
         from,
         to,
         weight: Math.floor(Math.random() * 50) + 10,
-        traffic: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)],
+        traffic: (["low", "medium", "high"] as const)[Math.floor(Math.random() * 3)],
         isBlocked: false,
       });
     }

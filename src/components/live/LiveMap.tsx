@@ -1,8 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   CircleMarker,
-  LayerGroup,
-  LayersControl,
   MapContainer,
   Polyline,
   Popup,
@@ -17,6 +16,8 @@ import type { MappedRoute } from "@/lib/live/osrm";
 import type { GpsFix } from "@/hooks/useGeolocation";
 import type { GraphNode } from "@/types/graph";
 import type { LonLat } from "@/lib/live/geo";
+import { amenityColor } from "@/lib/live/poi";
+import type { MapBase } from "@/lib/live/share";
 
 export type MapLayer = "dark" | "streets" | "sat";
 
@@ -32,6 +33,12 @@ interface LiveMapProps {
   graphPath: GraphNode[];
   onMapClick: (point: LonLat) => void;
   onBounds: (bounds: MapBounds) => void;
+  base: MapBase;
+  onBase: (base: MapBase) => void;
+  initialCenter: [number, number];
+  initialZoom: number;
+  holdView: boolean;
+  onView: (view: { center: LonLat; zoom: number }) => void;
 }
 
 function reducedMotion() {
@@ -43,14 +50,21 @@ function FitTrip({
   dest,
   via,
   route,
+  hold,
 }: {
   origin: Place | null;
   dest: Place | null;
   via: Place | null;
   route?: MappedRoute;
+  hold: boolean;
 }) {
   const map = useMap();
+  const skipped = useRef(false);
   useEffect(() => {
+    if (hold && !skipped.current) {
+      skipped.current = true;
+      return;
+    }
     const still = reducedMotion();
     if (route?.geometry.length) {
       map.fitBounds(route.geometry, { padding: [56, 56], maxZoom: 15, animate: !still });
@@ -65,8 +79,90 @@ function FitTrip({
         { padding: [64, 64], maxZoom: 14, animate: !still },
       );
     }
-  }, [map, origin, dest, via, route]);
+  }, [map, origin, dest, via, route, hold]);
   return null;
+}
+
+function MapAssist({ onView }: { onView: (view: { center: LonLat; zoom: number }) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    el.tabIndex = 0;
+    el.setAttribute("aria-label", "Map. When focused, arrow keys pan and plus or minus zoom.");
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(el);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.target !== el) return;
+      const pan = 120;
+      const moves: Record<string, [number, number]> = {
+        ArrowUp: [0, -pan],
+        ArrowDown: [0, pan],
+        ArrowLeft: [-pan, 0],
+        ArrowRight: [pan, 0],
+      };
+      if (moves[event.key]) {
+        event.preventDefault();
+        map.panBy(moves[event.key]);
+      } else if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        map.zoomIn();
+      } else if (event.key === "-" || event.key === "_") {
+        event.preventDefault();
+        map.zoomOut();
+      }
+    };
+    el.addEventListener("keydown", onKey);
+    return () => {
+      observer.disconnect();
+      el.removeEventListener("keydown", onKey);
+    };
+  }, [map]);
+
+  useMapEvents({
+    moveend() {
+      const center = map.getCenter();
+      onView({ center: { lon: center.lng, lat: center.lat }, zoom: map.getZoom() });
+    },
+  });
+  return null;
+}
+
+const BASE_LABEL: Record<MapBase, string> = {
+  night: "Night",
+  osm: "Streets",
+  sat: "Satellite",
+};
+
+function BasemapSwitch({ base, onBase }: { base: MapBase; onBase: (base: MapBase) => void }) {
+  const map = useMap();
+  return createPortal(
+    <div
+      className="stans-basemap"
+      role="group"
+      aria-label="Map style"
+      ref={(node) => {
+        if (node) (node as HTMLDivElement & { _leaflet_disable_click?: boolean })._leaflet_disable_click = true;
+      }}
+    >
+      {(Object.keys(BASE_LABEL) as MapBase[]).map((id) => (
+        <button
+          key={id}
+          type="button"
+          aria-pressed={base === id}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            onBase(id);
+          }}
+        >
+          {BASE_LABEL[id]}
+        </button>
+      ))}
+    </div>,
+    map.getContainer(),
+  );
 }
 
 function ClickCatch({ onMapClick, onBounds }: { onMapClick: (p: LonLat) => void; onBounds: (b: MapBounds) => void }) {
@@ -133,6 +229,12 @@ const LiveMap = ({
   graphPath,
   onMapClick,
   onBounds,
+  base,
+  onBase,
+  initialCenter,
+  initialZoom,
+  holdView,
+  onView,
 }: LiveMapProps) => {
   const primary = routes[activeRoute];
   const graphLine = useMemo(
@@ -145,43 +247,45 @@ const LiveMap = ({
 
   return (
     <MapContainer
-      center={[20, 12]}
-      zoom={3}
+      center={initialCenter}
+      zoom={initialZoom}
       className="h-full w-full"
       zoomControl={false}
       attributionControl
-      aria-label="OpenStreetMap"
     >
       <ZoomControl position="topright" />
-      <LayersControl position="topright">
-        <LayersControl.BaseLayer checked name="Night">
-          <LayerGroup>
-            <TileLayer
-              attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, DeLorme, NAVTEQ'
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-            />
-            <TileLayer
-              attribution=""
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
-            />
-          </LayerGroup>
-        </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="OpenStreetMap">
+      {base === "night" ? (
+        <>
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            key="night"
+            attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, DeLorme, NAVTEQ'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
           />
-        </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="Satellite">
           <TileLayer
-            attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a>'
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution=""
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
           />
-        </LayersControl.BaseLayer>
-      </LayersControl>
+        </>
+      ) : null}
+      {base === "osm" ? (
+        <TileLayer
+          key="osm"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+      ) : null}
+      {base === "sat" ? (
+        <TileLayer
+          key="sat"
+          attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a>'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        />
+      ) : null}
+      <BasemapSwitch base={base} onBase={onBase} />
 
       <ClickCatch onMapClick={onMapClick} onBounds={onBounds} />
-      <FitTrip origin={origin} dest={dest} via={via} route={primary} />
+      <MapAssist onView={onView} />
+      <FitTrip origin={origin} dest={dest} via={via} route={primary} hold={holdView} />
 
       {routes.map((route, index) =>
         index === activeRoute ? null : (
@@ -257,13 +361,5 @@ const LiveMap = ({
     </MapContainer>
   );
 };
-
-function amenityColor(kind: string): string {
-  if (kind === "hospital" || kind === "clinic") return "#ff6b5a";
-  if (kind === "police") return "#6ba3d4";
-  if (kind === "fire_station") return "#f0a030";
-  if (kind === "fuel") return "#3dd6e8";
-  return "#7a8794";
-}
 
 export default LiveMap;
