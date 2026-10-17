@@ -44,7 +44,7 @@ docker rm -f stans-app >/dev/null 2>&1 || true
 docker run -d \
   --name stans-app \
   --restart=always \
-  -p 127.0.0.1:8080:80 \
+  -p 127.0.0.1:8080:8080 \
   "$STANS_IMAGE"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

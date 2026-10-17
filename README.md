@@ -63,7 +63,7 @@ The live APIs are public demo endpoints. Nominatim asks for one request per seco
 
 ```bash
 docker build -t stans-app .
-docker run --restart=always -p 8080:80 stans-app
+docker run --restart=always -p 8080:8080 stans-app
 ```
 
 Image build on `main`: `.github/workflows/deploy.yml` → `ghcr.io/arnold-rg/stans`. Pages build: `.github/workflows/pages.yml` with `VITE_BASE=/STANS/`.

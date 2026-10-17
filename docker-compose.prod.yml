@@ -4,9 +4,9 @@ services:
     container_name: stans-app
     restart: always
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8080:8080"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
       interval: 30s
       timeout: 5s
       retries: 3

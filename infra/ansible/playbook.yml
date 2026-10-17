@@ -3,6 +3,7 @@
   hosts: stans
   become: true
   vars:
+    # TODO: prefer the sha-<short> tag deploy.yml pushes, once this playbook is given the commit.
     stans_image: ghcr.io/arnold-rg/stans:latest
     stans_domain: ""
     letsencrypt_email: ""
@@ -60,9 +61,9 @@
         image: "{{ stans_image }}"
         restart_policy: always
         published_ports:
-          - "127.0.0.1:8080:80"
+          - "127.0.0.1:8080:8080"
         healthcheck:
-          test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+          test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
           interval: 30s
           timeout: 5s
           retries: 3

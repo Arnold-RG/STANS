@@ -25,7 +25,7 @@ ufw --force enable
 
 docker pull ${container_image}
 docker rm -f stans-app || true
-docker run -d --name stans-app --restart=always -p 127.0.0.1:8080:80 ${container_image}
+docker run -d --name stans-app --restart=always -p 127.0.0.1:8080:8080 ${container_image}
 
 DOMAIN="${domain}"
 EMAIL="${email}"

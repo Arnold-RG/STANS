@@ -6,9 +6,8 @@ metadata:
   labels:
     app: stans
   annotations:
-    checkov.io/skip1: CKV_K8S_14=Publish workflow tags latest. Pin a digest once GHCR is linked to this repo.
-    checkov.io/skip2: CKV_K8S_43=A digest pin would drift from the tag deploy.yml pushes.
-    checkov.io/skip3: CKV_K8S_40=uid 101 is the nginx user in the runtime image. A uid over 10000 cannot bind port 80 once capabilities are dropped.
+    checkov.io/skip1: CKV_K8S_14=Static manifest still uses latest. TODO pin sha-<short> from deploy.yml once a renderer supplies the commit.
+    checkov.io/skip2: CKV_K8S_43=Same TODO. A digest is not known until the image push, and this file is not rendered at deploy time.
 spec:
   replicas: 2
   selector:
@@ -22,17 +21,21 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 101
-        fsGroup: 101
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: stans
+          # TODO: use the sha-<7-char commit> tag deploy.yml already pushes
+          # (docker/metadata-action type=sha,prefix=sha-). This file is applied
+          # as-is, so it cannot know that tag until something renders it.
           image: ghcr.io/arnold-rg/stans:latest
           imagePullPolicy: Always
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
