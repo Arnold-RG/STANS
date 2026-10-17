@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   CircleMarker,
@@ -59,12 +59,9 @@ function FitTrip({
   hold: boolean;
 }) {
   const map = useMap();
-  const skipped = useRef(false);
   useEffect(() => {
-    if (hold && !skipped.current) {
-      skipped.current = true;
-      return;
-    }
+    // Both shared camera params own the view, including after the route arrives.
+    if (hold) return;
     const still = reducedMotion();
     if (route?.geometry.length) {
       map.fitBounds(route.geometry, { padding: [56, 56], maxZoom: 15, animate: !still });

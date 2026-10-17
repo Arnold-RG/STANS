@@ -24,7 +24,7 @@ import { extractHighways, nearbyAmenities, nearestNode, type Amenity, type MapBo
 import { fetchRoutes, MODE_LABEL, type MappedRoute, type TravelMode } from "@/lib/live/osrm";
 import { isAbortError } from "@/lib/live/pace";
 import { kindsForGroups, type PoiGroupId } from "@/lib/live/poi";
-import { buildDeskSearch, deskSearchEqual, parseDeskSearch, type MapBase } from "@/lib/live/share";
+import { buildDeskSearch, deskSearchEqual, parseDeskSearch, sharedCameraHolds, type MapBase } from "@/lib/live/share";
 import {
   buildGpx,
   downloadText,
@@ -94,6 +94,7 @@ const Dashboard = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [canShare, setCanShare] = useState(false);
   const [urlReady, setUrlReady] = useState(false);
+  const [holdView, setHoldView] = useState(() => sharedCameraHolds(openedAt.current));
   const [base, setBase] = useState<MapBase>(openedAt.current.base ?? "night");
   const [baseLocked, setBaseLocked] = useState(openedAt.current.base != null);
   const [view, setView] = useState<{ center: LonLat; zoom: number } | null>(() => {
@@ -111,7 +112,6 @@ const Dashboard = () => {
   const mapBoot = useRef({
     center: [openedAt.current.center?.lat ?? 20, openedAt.current.center?.lon ?? 12] as [number, number],
     zoom: openedAt.current.zoom ?? 3,
-    hold: openedAt.current.center != null || openedAt.current.zoom != null,
   });
   const viewTimer = useRef<number | null>(null);
 
@@ -125,7 +125,10 @@ const Dashboard = () => {
       setPick("to");
     } else if (target === "to") setDest(place);
     else setVia(place);
-    if (options?.remember !== false) setRecent(pushRecentPlace(place));
+    if (options?.remember !== false) {
+      setRecent(pushRecentPlace(place));
+      setHoldView(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -434,12 +437,14 @@ const Dashboard = () => {
   };
 
   const swapEnds = () => {
+    setHoldView(false);
     setOrigin(dest);
     setDest(origin);
   };
 
   const clearTrip = () => {
     allowAutoGps.current = false;
+    setHoldView(false);
     setOrigin(null);
     setDest(null);
     setVia(null);
@@ -509,9 +514,18 @@ const Dashboard = () => {
       dest={dest}
       via={via}
       assign={assign}
-      clearOrigin={() => setOrigin(null)}
-      clearDest={() => setDest(null)}
-      clearVia={() => setVia(null)}
+      clearOrigin={() => {
+        setHoldView(false);
+        setOrigin(null);
+      }}
+      clearDest={() => {
+        setHoldView(false);
+        setDest(null);
+      }}
+      clearVia={() => {
+        setHoldView(false);
+        setVia(null);
+      }}
       recent={recent}
       gpsBusy={gpsBusy}
       gpsError={gpsError}
@@ -565,6 +579,7 @@ const Dashboard = () => {
       }}
       saved={saved}
       onOpenSaved={(trip) => {
+        setHoldView(false);
         setOrigin(trip.from);
         setDest(trip.to);
         setVia(trip.via ?? null);
@@ -710,7 +725,7 @@ const Dashboard = () => {
             }}
             initialCenter={mapBoot.current.center}
             initialZoom={mapBoot.current.zoom}
-            holdView={mapBoot.current.hold}
+            holdView={holdView}
             onView={onView}
           />
           <div className="pointer-events-none absolute left-3 top-3 z-[450] max-w-[min(24rem,calc(100%-5.5rem))] sm:left-5 sm:top-5">

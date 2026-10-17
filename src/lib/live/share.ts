@@ -58,6 +58,11 @@ export function buildDeskSearch(state: DeskLinkState): URLSearchParams {
   return next;
 }
 
+/** Shared `c` and `z` together own the camera. One of them still lets the route fit. */
+export function sharedCameraHolds(state: Pick<DeskLinkState, "center" | "zoom">): boolean {
+  return state.center != null && state.zoom != null;
+}
+
 export function deskSearchEqual(a: URLSearchParams, b: URLSearchParams): boolean {
   return DESK_QUERY_KEYS.every((key) => (a.get(key) ?? "") === (b.get(key) ?? ""));
 }

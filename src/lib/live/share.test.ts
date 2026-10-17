@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDeskSearch, deskSearchEqual, parseDeskSearch, parseZoom } from "./share";
+import { buildDeskSearch, deskSearchEqual, parseDeskSearch, parseZoom, sharedCameraHolds } from "./share";
 
 describe("desk links", () => {
   it("round-trips a trip, the chosen alternate, and the map", () => {
@@ -50,5 +50,12 @@ describe("desk links", () => {
     expect(parsed.alt).toBe(0);
     expect(parsed.zoom).toBeNull();
     expect(parsed.from).toBeNull();
+  });
+
+  it("keeps a shared camera only when both center and zoom are present", () => {
+    expect(sharedCameraHolds(parseDeskSearch(new URLSearchParams("c=30.06,-1.94&z=14")))).toBe(true);
+    expect(sharedCameraHolds(parseDeskSearch(new URLSearchParams("c=30.06,-1.94")))).toBe(false);
+    expect(sharedCameraHolds(parseDeskSearch(new URLSearchParams("z=14")))).toBe(false);
+    expect(sharedCameraHolds(parseDeskSearch(new URLSearchParams("from=30.06,-1.94&to=30.10,-1.97")))).toBe(false);
   });
 });

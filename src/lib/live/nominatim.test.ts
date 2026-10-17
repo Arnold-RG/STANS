@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { searchPlaces } from "./nominatim";
+import { createLru, searchPlaces } from "./nominatim";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -35,13 +35,35 @@ describe("Nominatim search", () => {
     vi.stubGlobal("fetch", fetchMock);
     const places = await searchPlaces("Kigali");
     expect(places[0]).toMatchObject({ id: "42", name: "Kigali", lat: -1.9441, lon: 30.0619 });
+    const again = await searchPlaces("Kigali");
+    expect(again).toEqual(places);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("reports a rate-limit status", async () => {
+  it("reports a rate-limit status and does not cache the failure", async () => {
+    let calls = 0;
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response("slow down", { status: 429 })),
+      vi.fn(async () => {
+        calls += 1;
+        if (calls === 1) return new Response("slow down", { status: 429 });
+        return new Response(
+          JSON.stringify([
+            {
+              place_id: 9,
+              display_name: "Huye, Rwanda",
+              lat: "-2.5967",
+              lon: "29.7394",
+              name: "Huye",
+            },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }),
     );
-    await expect(searchPlaces("Kigali")).rejects.toThrow(/429/);
+    await expect(searchPlaces("Huye")).rejects.toThrow(/429/);
+    const places = await searchPlaces("Huye");
+    expect(calls).toBe(2);
+    expect(places[0]).toMatchObject({ id: "9", name: "Huye" });
   });
 });

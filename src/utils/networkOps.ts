@@ -86,19 +86,31 @@ export function sitrepLines(input: {
   ];
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export function printPlain(title: string, lines: string[]) {
+  const safeTitle = escapeHtml(title);
   const html = `<!doctype html>
-<html><head><meta charset="utf-8"><title>${title}</title>
+<html><head><meta charset="utf-8"><title>${safeTitle}</title>
 <style>
   body { font: 13px/1.45 "IBM Plex Mono", ui-monospace, monospace; color: #16140f; margin: 32px; }
   h1 { font-size: 14px; letter-spacing: .2em; text-transform: uppercase; }
   p { margin: 0 0 8px; }
 </style></head><body>
-<h1>${title}</h1>
-${lines.map((line) => `<p>${line.replace(/</g, "&lt;")}</p>`).join("")}
+<h1>${safeTitle}</h1>
+${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
 </body></html>`;
-  const frame = window.open("", "_blank", "noopener,noreferrer");
+  // `noopener` in the features string makes browsers return null, so the
+  // sitrep never opens. Detach the opener after a normal blank window.
+  const frame = window.open("", "_blank");
   if (!frame) return false;
+  frame.opener = null;
   frame.document.write(html);
   frame.document.close();
   frame.focus();

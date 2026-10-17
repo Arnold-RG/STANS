@@ -11,13 +11,39 @@ export interface Place {
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 
+/** Oldest entry is evicted once `limit` successful responses are stored. */
+export function createLru<T>(limit: number) {
+  const map = new Map<string, T>();
+  return {
+    get(key: string): T | undefined {
+      if (!map.has(key)) return undefined;
+      const value = map.get(key) as T;
+      map.delete(key);
+      map.set(key, value);
+      return value;
+    },
+    set(key: string, value: T) {
+      if (map.has(key)) map.delete(key);
+      map.set(key, value);
+      while (map.size > limit) {
+        const oldest = map.keys().next().value;
+        if (oldest !== undefined) map.delete(oldest);
+      }
+    },
+  };
+}
+
 /**
  * Browsers forbid setting User-Agent. Nominatim's usage policy accepts the
- * page Referer (index.html uses strict-origin-when-cross-origin) and asks
- * for at most one request per second. `pace` enforces that gap.
+ * page Referer (index.html uses strict-origin-when-cross-origin), asks for
+ * at most one request per second, and asks apps to cache results. `pace`
+ * enforces the gap. `results` keeps a small LRU of successful JSON so a
+ * repeated search or reverse lookup does not spend another request.
  */
 const MIN_GAP_MS = 1100;
+const RESULT_CACHE = 32;
 const pace = createPacer(MIN_GAP_MS);
+const results = createLru<unknown>(RESULT_CACHE);
 
 function headers(): HeadersInit {
   return {
@@ -48,7 +74,10 @@ function toPlace(hit: NominatimHit): Place {
 }
 
 async function nominatimGet(url: URL, failedLabel: string, signal?: AbortSignal): Promise<unknown> {
-  return pace(async () => {
+  const key = url.toString();
+  const cached = results.get(key);
+  if (cached !== undefined) return cached;
+  const data = await pace(async () => {
     const res = await fetch(url.toString(), {
       headers: headers(),
       signal: withTimeout(signal, 20000),
@@ -56,6 +85,8 @@ async function nominatimGet(url: URL, failedLabel: string, signal?: AbortSignal)
     if (!res.ok) throw new Error(`${failedLabel} (${res.status})`);
     return res.json();
   }, signal);
+  results.set(key, data);
+  return data;
 }
 
 export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
