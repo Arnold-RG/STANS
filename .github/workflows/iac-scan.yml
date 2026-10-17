@@ -52,23 +52,22 @@ jobs:
           sarif_file: checkov-dockerfile.sarif
           category: checkov-dockerfile
 
-      - name: Checkov scan - nginx config
+      # Checkov 3.3.29 has no nginx framework, so nginx/*.conf is not scanned here.
+      - name: Checkov scan - Kubernetes
         uses: bridgecrewio/checkov-action@v12
         with:
-          directory: nginx
-          framework: nginx
+          directory: k8s
+          framework: kubernetes
           output_format: sarif
-          output_file_path: checkov-nginx.sarif
+          output_file_path: checkov-kubernetes.sarif
           soft_fail: true
-        continue-on-error: true
 
-      - name: Upload nginx scan to Security tab
+      - name: Upload Kubernetes scan to Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: checkov-nginx.sarif
-          category: checkov-nginx
-        continue-on-error: true
+          sarif_file: checkov-kubernetes.sarif
+          category: checkov-kubernetes
 
       - name: Checkov scan - GitHub Actions workflows
         uses: bridgecrewio/checkov-action@v12
@@ -90,6 +89,6 @@ jobs:
         uses: bridgecrewio/checkov-action@v12
         with:
           directory: .
-          framework: dockerfile,nginx,github_actions
+          framework: dockerfile,github_actions,kubernetes
           output_format: cli
           soft_fail: true

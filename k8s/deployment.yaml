@@ -5,6 +5,10 @@ metadata:
   namespace: stans
   labels:
     app: stans
+  annotations:
+    checkov.io/skip1: CKV_K8S_14=Publish workflow tags latest. Pin a digest once GHCR is linked to this repo.
+    checkov.io/skip2: CKV_K8S_43=A digest pin would drift from the tag deploy.yml pushes.
+    checkov.io/skip3: CKV_K8S_40=uid 101 is the nginx user in the runtime image. A uid over 10000 cannot bind port 80 once capabilities are dropped.
 spec:
   replicas: 2
   selector:
@@ -15,10 +19,13 @@ spec:
       labels:
         app: stans
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 101
         fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: stans
           image: ghcr.io/arnold-rg/stans:latest
