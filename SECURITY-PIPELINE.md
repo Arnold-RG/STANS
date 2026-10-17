@@ -1,7 +1,7 @@
 # DevSecOps Pipeline — Security Documentation
 
 > This document describes the security controls on the STANS traffic desk.
-> Designed and implemented by Arnold Rurangwa, ARNOVA Group.
+> Designed and implemented by Arnold Rurangwa.
 
 ---
 

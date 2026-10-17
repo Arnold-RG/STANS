@@ -481,7 +481,7 @@ export default function Documentation() {
 
         {/* Footer */}
         <footer className="mt-16 border-t border-border pt-8">
-          <p className="text-sm text-muted-foreground">Arnold Rurangwa · ARNOVA Group. Map data © OpenStreetMap contributors.</p>
+          <p className="text-sm text-muted-foreground">Arnold Rurangwa. Map data © OpenStreetMap contributors.</p>
           <p className="mt-2 text-sm">
             <a
               className="text-foreground underline decoration-primary/60 underline-offset-4"
