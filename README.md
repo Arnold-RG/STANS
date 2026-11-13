@@ -21,6 +21,8 @@ The public build lives here:
 
 **https://arnold-rg.github.io/STANS/**
 
+[![STANS](docs/screenshot.jpg)](https://arnold-rg.github.io/STANS/)
+
 Phone, tablet, or laptop — that URL is enough. There is no Vercel staging link on this repo.
 
 ## What you actually get
@@ -97,4 +99,4 @@ Map data © OpenStreetMap contributors. Routes: OSRM. Weather: Open-Meteo.
 
 ## Author
 
-**Arnold Rurangwa** · ARNOVA Group
+**Arnold Rurangwa**
