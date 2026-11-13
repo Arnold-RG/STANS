@@ -7,7 +7,6 @@ dist
 dist-ssr
 coverage
 *.md
-!README.md
 *.docx
 *.local
 .env
