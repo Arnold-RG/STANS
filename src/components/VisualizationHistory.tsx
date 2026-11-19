@@ -20,7 +20,7 @@ interface AlgorithmRun {
   algorithm: 'kruskal' | 'prim' | 'dijkstra';
   timestamp: Date;
   steps: AlgorithmStep[];
-  graphData: any;
+  graphData: unknown;
   finalWeight: number;
   executionTime: number;
 }
