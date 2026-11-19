@@ -46,7 +46,7 @@ jobs:
           soft_fail: true
 
       - name: Upload Dockerfile scan to Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: checkov-dockerfile.sarif
@@ -63,7 +63,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload Kubernetes scan to Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: checkov-kubernetes.sarif
@@ -80,7 +80,7 @@ jobs:
           soft_fail: true
 
       - name: Upload Actions scan to Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: checkov-actions.sarif
