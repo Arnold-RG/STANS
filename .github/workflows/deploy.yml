@@ -114,7 +114,7 @@ jobs:
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ steps.image.outputs.name }}:latest
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
@@ -149,7 +149,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.2
         env:
           IMAGE: ghcr.io/${{ github.repository }}
-          SHA: ${{ github.sha }}
+          IMAGE_DIGEST: ${{ needs.build-and-push.outputs.digest }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           ACTOR: ${{ github.actor }}
         with:
@@ -157,14 +157,14 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ env.SSH_PORT || '22' }}
-          envs: IMAGE,SHA,GHCR_TOKEN,ACTOR
+          envs: IMAGE,IMAGE_DIGEST,GHCR_TOKEN,ACTOR
           script: |
             set -euo pipefail
             IMAGE_REF="$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')"
             if [ -n "${GHCR_TOKEN:-}" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
             fi
-            docker pull "${IMAGE_REF}:${SHA}"
+            docker pull "${IMAGE_REF}@${IMAGE_DIGEST}"
             docker stop stans-app || true
             docker rm stans-app || true
             docker run -d \
@@ -175,6 +175,6 @@ jobs:
               --health-timeout=5s \
               --health-retries=3 \
               -p 127.0.0.1:8080:80 \
-              "${IMAGE_REF}:${SHA}"
+              "${IMAGE_REF}@${IMAGE_DIGEST}"
             docker image prune -f
-            echo "Deployed ${IMAGE_REF}:${SHA}"
+            echo "Deployed ${IMAGE_REF}@${IMAGE_DIGEST}"
