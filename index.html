@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://server.arcgisonline.com https://*.arcgisonline.com; connect-src 'self' https://nominatim.openstreetmap.org https://router.project-osrm.org https://overpass-api.de https://api.open-meteo.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <link rel="apple-touch-icon" href="%BASE_URL%logo.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <meta name="theme-color" content="#0c1118" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="STANS" />
+    <title>STANS — live traffic desk</title>
+    <meta
+      name="description"
+      content="A live desk on OpenStreetMap. Search a real place, take a GPS fix, and ask OSRM for a drive, cycle, or walk. Weather, nearby help, and a street graph when you zoom in."
+    />
+    <meta name="author" content="Arnold Rurangwa" />
+    <link rel="canonical" href="https://arnold-rg.github.io/STANS/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600&family=Syne:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <meta property="og:title" content="STANS — live traffic desk" />
+    <meta
+      property="og:description"
+      content="OpenStreetMap, Nominatim, OSRM, and Open-Meteo. A desk for a real trip, not a simulated city."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://arnold-rg.github.io/STANS/" />
+    <meta property="og:image" content="https://arnold-rg.github.io/STANS/logo.png" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="STANS — live traffic desk" />
+    <meta
+      name="twitter:description"
+      content="OpenStreetMap, Nominatim, OSRM, and Open-Meteo. A desk for a real trip, not a simulated city."
+    />
+    <meta name="twitter:image" content="https://arnold-rg.github.io/STANS/logo.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "STANS",
+        "url": "https://arnold-rg.github.io/STANS/",
+        "applicationCategory": "NavigationApplication",
+        "operatingSystem": "Web",
+        "description": "Live traffic desk on OpenStreetMap with OSRM routing, weather, and a local street graph.",
+        "author": {
+          "@type": "Person",
+          "name": "Arnold Rurangwa"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <p style="max-width: 36rem; margin: 4rem auto; padding: 0 1.25rem; font-family: Georgia, serif; font-size: 1.4rem; line-height: 1.4">
+        STANS needs JavaScript to reach the map services.
+      </p>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
