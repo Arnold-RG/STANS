@@ -20,11 +20,14 @@ interface AlgorithmComparisonProps {
   edges?: Edge[];
 }
 
+type MstSummary = { steps: number; edges: number; weight: number; time: string };
+type ShortestPathSummary = { steps: number; distance: string; path: string; time: string };
+
 const AlgorithmComparison = ({ nodes: propNodes, edges: propEdges }: AlgorithmComparisonProps) => {
   const [hasRun, setHasRun] = useState(false);
-  const [kruskalResult, setKruskalResult] = useState<any>(null);
-  const [primResult, setPrimResult] = useState<any>(null);
-  const [dijkstraResult, setDijkstraResult] = useState<any>(null);
+  const [kruskalResult, setKruskalResult] = useState<MstSummary | null>(null);
+  const [primResult, setPrimResult] = useState<MstSummary | null>(null);
+  const [dijkstraResult, setDijkstraResult] = useState<ShortestPathSummary | null>(null);
 
   // Use provided nodes/edges or fallback to sample data
   const defaultNodes: Node[] = [
